@@ -1,10 +1,10 @@
 module lexer;
 import std.container.array;
-import std.regex;
 import std.conv;
 import std.string;
 import std.array;
-import std.uni : isWhite;
+import std.uni : isWhite, isAlphaNum;
+import std.stdio : writeln;
 
 enum TokenType
 {
@@ -38,24 +38,57 @@ class Token
     TokenType type;
 }
 
-Token readToken(string source, ref uint index)
+class Lexer
 {
-    string nsrc = source[index .. $];
-    nsrc = nsrc.stripLeft();
-    string word = "";
-    if (nsrc.split!isWhite.length > 0)
-        word = nsrc.split!isWhite[0];
-    index += word.length;
-    return new Token(word);
+    public:
+
+    this(string source)
+    {
+        this.source = source;
+    }
+
+    Array!Token lex()
+    {
+        auto tokens = Array!Token();
+        while (index < source.length)
+        {
+            tokens.insertBack(readToken());
+        }
+        return tokens;
+    }
+
+    private:
+
+    Token readIdent()
+    {
+        auto tmp = index;
+        while(source[index].isAlphaNum)
+        {
+            index++;
+        }
+        return new Token(source[tmp .. index]);
+    }
+
+    Token readToken()
+    {
+        while (index < source.length)
+        {
+            switch(source[index])
+            {
+                case 'a': .. case 'z':
+                    return readIdent();
+
+                default:
+                    index++;
+                break;
+            }
+        }
+        return null;
+    }
+
+    string source;
+    ulong index;
 }
 
-Array!Token lex(string source)
-{
-    auto tokens = Array!Token();
-    uint index = 0;
-    while(index <= source.length)
-    {
-        tokens.insertBack(readToken(source, index));
-    }
-    return tokens;
-}
+
+

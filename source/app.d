@@ -4,14 +4,7 @@ import std.file;
 import std.format;
 import std.array;
 import std.conv;
-
-enum string assemblyFormat = 
-"
-.globl main
-main:
-mov eax, %d
-ret
-";
+import lexer;
 
 int main(string[] args)
 {
@@ -23,12 +16,10 @@ int main(string[] args)
 	}
 
 	string sourceFile = args[1];
-	auto source_re = regex(r"int main\s*\(\s*\)\s*\{\s*return\s+(?P<ret>[0-9]+)\s*;\s*\}");
-	immutable string source = readText(sourceFile);
-	auto match = source.matchFirst(source_re);
-	immutable int retVal = match["ret"].to!int;
-	std.file.write(sourceFile.replace(".c", ".s"), format(assemblyFormat, retVal));
-
-	writeln("files compiled successfully !");
+	auto lexer = new Lexer(readText(sourceFile));
+	auto tokens = lexer.lex;
+	foreach(e; tokens)
+		e.str.writeln;
+	writeln("files compiled successfully !\n", sourceFile);
 	return 0;
 }
