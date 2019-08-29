@@ -1,0 +1,9 @@
+{
+	"authors": [
+		"Blackbird"
+	],
+	"copyright": "Copyright © 2019, Blackbird",
+	"description": "A simple C compiler",
+	"license": "proprietary",
+	"name": "ccompiler"
+}
