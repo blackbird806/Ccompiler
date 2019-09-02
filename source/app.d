@@ -1,10 +1,9 @@
 import std.stdio;
-import std.regex;
 import std.file;
-import std.format;
-import std.array;
 import std.conv;
+
 import lexer;
+import parser;
 
 int main(string[] args)
 {
@@ -14,12 +13,28 @@ int main(string[] args)
 		writeln("error : to few arguments");
 		return -1;
 	}
-
 	string sourceFile = args[1];
-	auto lexer = new Lexer(readText(sourceFile));
+
+	string source;
+	try { source = readText(sourceFile); } 
+	catch(FileException e) {
+		e.msg.writeln();
+		return -1;
+	}
+	auto lexer = new Lexer(source);
+
 	auto tokens = lexer.lex;
+	writeln("\n");
 	foreach(e; tokens)
-		e.str.writeln;
+	{
+		e.str.write; 
+		writeln(" \t: ", e.type);
+	}
+	writeln("\n");
+
+	auto parser = new Parser(tokens);
+	AST ast = parser.parse();
+	ast.print();
 	writeln("files compiled successfully !\n", sourceFile);
 	return 0;
 }
