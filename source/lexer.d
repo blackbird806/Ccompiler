@@ -1,18 +1,18 @@
 module lexer;
-import std.container.array;
 import std.conv;
 import std.string;
 import std.array;
 import std.uni;
 import std.stdio : writeln;
 
-enum TokenType
+enum TokenType : uint
 {
     openBrace,    
     closedBrace,
     openParenthesis,
     closedParenthesis,
     semicolon,
+    comma,
     integerLiteral,
     identifier,
     keywordInt,
@@ -50,6 +50,16 @@ bool isKeyword(string name)
     }
 }
 
+bool isLanguageType(TokenType t)
+{
+    return cast(uint) t <=  cast(uint) TokenType.keywordInt && cast(uint) t < TokenType.keywordReturn;
+}
+
+bool isLanguageType(Token t)
+{
+    return isLanguageType(t.type);
+}
+
 class Lexer
 {
     public:
@@ -59,12 +69,12 @@ class Lexer
         this.source = source;
     }
 
-    Array!Token lex()
+    Token[] lex()
     {
-        auto tokens = Array!Token();
+        auto tokens = new Token[0];
         while (index < source.length)
         {
-            tokens.insertBack(readToken());
+            tokens ~= readToken();
         }
         return tokens;
     }
@@ -120,8 +130,10 @@ class Lexer
                 case '}':
                     return makeToken(current, TokenType.closedBrace); 
                 case ';':
-                    return makeToken(current, TokenType.semicolon); 
-                case ',':  case '[': case ']': 
+                    return makeToken(current, TokenType.semicolon);
+                case ',':
+                    return makeToken(current, TokenType.comma);
+                case '[': case ']': 
                  case '?': case '~': case '=':
                 return makeToken(current);
                 default:

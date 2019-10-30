@@ -16,17 +16,20 @@ int main(string[] args)
 	string sourceFile = args[1];
 
 	string source;
-	try { source = readText(sourceFile); } 
-	catch(FileException e) {
+	try {
+		 source = readText(sourceFile); 
+	} 
+	catch(FileException e) 
+	{
 		e.msg.writeln();
 		return -1;
 	}
-	auto lexer = new Lexer(source);
 
+	auto lexer = new Lexer(source);
 	auto tokens = lexer.lex;
+
 	writeln("\n");
-	foreach(e; tokens)
-	{
+	foreach(e; tokens) {
 		e.str.write; 
 		writeln(" \t: ", e.type);
 	}
@@ -34,7 +37,10 @@ int main(string[] args)
 
 	auto parser = new Parser(tokens);
 	AST ast = parser.parse();
-	ast.print();
-	writeln("files compiled successfully !\n", sourceFile);
+	// ast.print();
+
+	
+
+	writefln("files %s compiled successfully !", sourceFile);
 	return 0;
 }

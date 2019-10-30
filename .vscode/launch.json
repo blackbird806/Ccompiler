@@ -9,11 +9,12 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}\\ccompiler.exe",
-            "args": ["D:\\dev\\D\\Ccompiler\\Ccompiler\\Ctests\\week1.c"],
+            "args": ["D:\\dev\\D\\Ccompiler\\Ccompiler\\Ctests\\test1.c"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],
             "externalConsole": false,
+            "preLaunchTask": "build"
         }
     ]
 }
