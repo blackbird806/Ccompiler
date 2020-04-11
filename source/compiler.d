@@ -48,7 +48,7 @@ class Parser
 
 	auto next()
 	{
-		return source[++index];
+		return source[index++];
 	}
 
 	auto current()
@@ -90,6 +90,7 @@ class Parser
 			break;
 			case '/':
 				t.type = Token.Type.slash;
+				next();
 			break;
 
 			default:
@@ -135,22 +136,44 @@ class Parser
 		}
 	}
 
-	auto binExpr()
+	auto multiplicativeExpr()
 	{
 		auto left = primary();
+		if (tokenIndex >= tokens.length)
+			return left;
+		
+		while(tokens[tokenIndex].type == Token.type.star || 
+			tokens[tokenIndex].type == Token.type.slash)
+		{
+			auto tk = nextToken();
+			auto right = primary();
+			left = new ASTnode(tk.toArithmeticOp(), left, right);
+			if (tokenIndex >= tokens.length)
+				break;
+		}
+		return left;
+	}
+
+	auto additiveExpr()
+	{
+		auto left = multiplicativeExpr();
 
 		if (tokenIndex >= tokens.length)
 			return left;
 		
-		auto opNode = nextToken.toArithmeticOp();
-		auto right = binExpr();
+		while(tokenIndex < tokens.length)
+		{
+			auto tk = nextToken();
+			auto right = multiplicativeExpr();
+			left = new ASTnode(tk.toArithmeticOp, left, right);
+		}
 
-		return new ASTnode(opNode, left, right);
+		return left;
 	}
 
 	int interpret()
 	{
-		return interpret(binExpr());
+		return interpret(additiveExpr());
 	}
 
 	int interpret(ASTnode root)
