@@ -37,6 +37,9 @@ struct Token
 	int value;
 }
 
+enum operatorPrecedence = [	ASTnode.Type.add: 1, ASTnode.Type.substract: 1, 
+										ASTnode.Type.multiply: 2, ASTnode.Type.divide: 2];
+
 class Parser
 {
 	public:
@@ -123,6 +126,16 @@ class Parser
 		return tokens[tokenIndex++];
 	}
 
+	auto opPrecedence(Token tk)
+	{
+		if (tk.toArithmeticOp !in operatorPrecedence)
+		{
+			writeln("syntax error token : ", tk);
+			assert(false);
+		}
+		return operatorPrecedence[tk.toArithmeticOp];
+	}
+
 	auto primary()
 	{
 		auto tk = nextToken();
@@ -134,6 +147,24 @@ class Parser
 			default:
 			assert(false);
 		}
+	}
+
+	auto binExpr(int lastPred)
+	{
+		auto left = primary();
+		if (tokenIndex >= tokens.length)
+			return left;
+
+		while(opPrecedence(tokens[tokenIndex]) > lastPred)
+		{
+			auto tk = nextToken();
+			auto right = binExpr(operatorPrecedence[tk.toArithmeticOp()]);
+			left = new ASTnode(tk.toArithmeticOp(), left, right);
+			if (tokenIndex >= tokens.length)
+				break;
+		}
+
+		return left;
 	}
 
 	auto multiplicativeExpr()
@@ -173,7 +204,7 @@ class Parser
 
 	int interpret()
 	{
-		return interpret(additiveExpr());
+		return interpret(binExpr(0));
 	}
 
 	int interpret(ASTnode root)
