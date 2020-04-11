@@ -14,11 +14,15 @@ enum TokenType : uint
     semicolon,
     comma,
     integerLiteral,
+    stringLiteral,
     identifier,
     keywordInt,
     keywordReturn,
     undefined
 }
+
+enum TokenType[string] keywords = [ "int":      TokenType.keywordInt,
+                                    "return":   TokenType.keywordReturn];
 
 class Token
 {
@@ -30,7 +34,7 @@ class Token
         this.type = type;
     }
 
-    pure ulong length() const @property @safe
+    pure ulong length() const
     {
         return str.length;
     }
@@ -41,13 +45,7 @@ class Token
 
 bool isKeyword(string name)
 {
-    switch(name)
-    {
-        case "int": case "return":
-            return true;
-        default:
-            return false;
-    }
+    return (name in keywords) != null;
 }
 
 bool isLanguageType(TokenType t)
@@ -109,6 +107,10 @@ class Lexer
         return new Token(source[tmp .. index], TokenType.integerLiteral);
     }
 
+    void jumpComment()
+    {
+    }
+
     Token readToken()
     {
         while (index < source.length)
@@ -133,6 +135,9 @@ class Lexer
                     return makeToken(current, TokenType.semicolon);
                 case ',':
                     return makeToken(current, TokenType.comma);
+                case '/':
+                    jumpComment();
+                    break;
                 case '[': case ']': 
                  case '?': case '~': case '=':
                 return makeToken(current);

@@ -34,9 +34,23 @@ class AST
     static class FunDecl : Node
     {
         public:
+
+        void print()
+        {
+            write(rtype.str, " ", name.str, "(");
+            foreach(size_t i, p; args)
+            {
+                write(p.type.str, " ", p.name.str);
+                if (i++ < args.length - 1)
+                    write(", ");
+            }
+            writeln(")");
+        }
+
         Token name;
         Token rtype;
         Argument[] args;
+        FunBody body;
     }
 
     static class FunBody : Node
@@ -135,17 +149,25 @@ class Parser
         AST ast = new AST();
         ast.root = new AST.Program();
         auto current = ast.root;
-        // while (index <= tokens.length)
+
+        // 
         {
+            import code_generator;
+
+            // while (index < tokens.length)
+            // {
+            //     auto fun = isFuncDef();
+            //     if (fun !is null)
+            //     {
+            //         current.addChild(fun);
+            //         fun.print();
+            //     }
+            // }
+
             auto fn = isFuncDef();
             assert(fn !is null);
-            
-            writeln(fn.rtype.str, " ", fn.name.str);
-            foreach(p; fn.args)
-            {
-                writeln(p.type.str);
-                writeln(p.name.str);
-            }
+            fn.print();
+            generateFunc(fn, null).writeln;
         }
 
         return ast;

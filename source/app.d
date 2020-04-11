@@ -3,7 +3,8 @@ import std.file;
 import std.conv;
 
 import lexer;
-import parser;
+import parser, better_parser;
+import code_generator;
 
 int main(string[] args)
 {
@@ -17,7 +18,7 @@ int main(string[] args)
 
 	string source;
 	try {
-		 source = readText(sourceFile); 
+		source = readText(sourceFile); 
 	} 
 	catch(FileException e) 
 	{
@@ -30,17 +31,17 @@ int main(string[] args)
 
 	writeln("\n");
 	foreach(e; tokens) {
-		e.str.write; 
+		e.str.write(); 
 		writeln(" \t: ", e.type);
 	}
 	writeln("\n");
 
-	auto parser = new Parser(tokens);
-	AST ast = parser.parse();
-	// ast.print();
+	auto parser = new BetterParser(tokens);
+	parser.parse();
 
-	
+	// auto parser = new Parser(tokens);
+	// AST ast = parser.parse();
 
-	writefln("files %s compiled successfully !", sourceFile);
+	writefln("file %s compiled successfully !", sourceFile);
 	return 0;
 }
