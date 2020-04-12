@@ -2,6 +2,8 @@ module compiler;
 import std.stdio;
 import std.uni;
 import std.conv;
+import std.format;
+import std.algorithm;
 
 struct Token
 {
@@ -37,10 +39,12 @@ struct Token
 	int value;
 }
 
-enum operatorPrecedence = [	ASTnode.Type.add: 1, ASTnode.Type.substract: 1, 
+enum operatorPrecedence = [	ASTnode.Type.add: 1, ASTnode.Type.substract: 1,  // @suppress(dscanner.performance.enum_array_literal)
 										ASTnode.Type.multiply: 2, ASTnode.Type.divide: 2];
 
-class Parser
+static immutable registers = [Register("%r8"), Register("%r9"), Register("%r10"), Register("%r11")];
+
+class Compiler
 {
 	public:
 
@@ -238,14 +242,126 @@ class Parser
 		}
 	}
 
+	void freeAllRegiters()
+	{
+		freeRegisters = registers.dup;
+	}
+
+	void freeRegister(Register r)
+	{
+		if (freeRegisters.canFind!(a => a.name == r.name))
+			return;
+		freeRegisters ~= r;
+	}
+
+	auto allocRegister()
+	{
+		assert(freeRegisters.length > 0);
+		auto r = freeRegisters[0];
+		freeRegisters = freeRegisters[1 .. $];
+		return r;
+	}
+
+	auto cgLoad(int val)
+	{
+		auto register = allocRegister();
+		register.value = val;
+		genCode ~= format!"movq\t$%d, %s\n"(val, register.name);
+		return register;
+	}
+
+	auto cgAdd(Register r1, Register r2)
+	{
+		genCode ~= format!"addq\t%s, %s\n"(r1.name, r2.name);
+		freeRegister(r1);
+		return r2;
+	}
+
+	auto cgSub(Register r1, Register r2)
+	{
+		genCode ~= format!"subq\t%s, %s\n"(r2.name, r1.name);
+		freeRegister(r2);
+		return r1;
+	}
+
+	auto cgMul(Register r1, Register r2)
+	{
+		genCode ~= format!"imulq\t%s, %s\n"(r1.name, r2.name);
+		freeRegister(r1);
+		return r2;
+	}
+
+	auto cgDiv(Register r1, Register r2)
+	{
+		genCode ~= format!"movq\t%s, %%rax\n"(r1.name);
+		genCode ~= "cqo\n";
+		genCode ~= format!"idivq\t%s\n"(r2.name);
+		genCode ~= format!"movq\t%%rax, %s\n"(r2.name);
+		freeRegister(r1);
+		return r2;
+	}
+
+	Register genAST(ASTnode node)
+	{
+		Register left, right;
+		if (node.left !is null)
+			left = genAST(node.left);
+
+		if (node.right !is null)
+			right = genAST(node.right);
+
+		switch(node.type)
+		{
+			case ASTnode.Type.add:
+				return cgAdd(left, right);
+				
+			case ASTnode.Type.substract:
+				return cgSub(left, right);
+				
+			case ASTnode.Type.divide:
+				return cgDiv(left, right);
+				
+			case ASTnode.Type.multiply:
+				return cgMul(left, right);
+
+			case ASTnode.Type.intLiteral:
+				return cgLoad(node.value);
+			
+			default:
+				assert(false);
+		}
+	}
+
+	void genPreamble()
+	{
+		genCode ~= ".globl main\n" ~
+		"main:\n" ~
+        "pushq   %rbp\n" ~
+        "movq    %rsp, %rbp\n";
+	}
+
+	void genPostamble()
+	{
+		genCode ~= "movq $0, %rax\npopq %rbp\nret\n";
+	}
+
+	void compile()
+	{
+		freeAllRegiters();
+		genPreamble();
+		genAST(binExpr(0));
+		genPostamble();
+	}
+
 	invariant
 	{
 		assert(index <= source.length);
 	}
 
 	Token[] tokens;
-	ASTnode root;
-	string source; 
+	Register[] freeRegisters;
+	string source;
+	string genCode;
 	uint index;
 	uint tokenIndex;
 	uint line;
@@ -287,5 +403,11 @@ class ASTnode
 	ASTnode right;
 	alias child = right;
 	Type type;
+	int value;
+}
+
+struct Register
+{
+	string name;
 	int value;
 }
