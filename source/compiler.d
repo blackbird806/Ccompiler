@@ -55,7 +55,7 @@ class Compiler
 
 	auto next()
 	{
-		return source[index++];
+		return source[++index];
 	}
 
 	auto current()
@@ -301,6 +301,13 @@ class Compiler
 		return r2;
 	}
 
+	void cgPrintRegister(Register r)
+	{
+		genCode ~= format!"lea .LC0(%%rip), %%rdi\n";
+		genCode ~= format!"movq %s, %%rsi\n"(r.name);
+		genCode ~= "call printf\n";
+	}
+
 	Register genAST(ASTnode node)
 	{
 		Register left, right;
@@ -334,7 +341,11 @@ class Compiler
 
 	void genPreamble()
 	{
-		genCode ~= ".globl main\n" ~
+		genCode ~=
+		".text\n" ~ 
+		".LC0:\n" ~ 
+		`.string "num %d\n"` ~ "\n" ~
+		".globl main\n" ~
 		"main:\n" ~
         "pushq   %rbp\n" ~
         "movq    %rsp, %rbp\n";
@@ -349,7 +360,8 @@ class Compiler
 	{
 		freeAllRegiters();
 		genPreamble();
-		genAST(binExpr(0));
+		auto result = genAST(binExpr(0));
+		cgPrintRegister(result);
 		genPostamble();
 	}
 

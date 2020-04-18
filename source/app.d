@@ -4,7 +4,7 @@ import compiler;
 
 int main(string[] args)
 {
-	auto cmp = new Compiler("5*3+2+8/4");
+	auto cmp = new Compiler("25 * 4+ 2/1*8 /2");
 	cmp.lex();
 	// immutable r = cmp.interpret();
 	// writeln("result ", r);
