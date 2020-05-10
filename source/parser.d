@@ -8,9 +8,9 @@ void reportError(Args...)(string fmt, Args args)
 	writefln("[parser] error : " ~ fmt, args);
 }
 
-class ASTnode
+abstract class ASTnode
 {
-	
+
 }
 
 class BinExpr : ASTnode
@@ -33,7 +33,7 @@ class BinExpr : ASTnode
 
 		if (!t)
 		{
-			reportError("bad tk type for binExpr : %s", tktype);
+			reportError("bad token type for binExpr : %s", tktype);
 			return Type.nullOP;
 		}
 
@@ -61,6 +61,14 @@ class IntLiteral : ASTnode
 	int value;
 }
 
+enum operatorPrecedence = [	 // @suppress(dscanner.performance.enum_array_literal)
+							BinExpr.Type.add: 1, 
+							BinExpr.Type.substract: 1,
+							BinExpr.Type.multiply: 2,
+							BinExpr.Type.divide: 2 
+						];
+
+
 class Parser
 {
 	this(Token[] tks)
@@ -77,9 +85,98 @@ class Parser
 		);
 	}
 
+	uint opPrecedence(Token tk)
+	{
+		BinExpr.Type t = BinExpr.toBinExprType(tk.type);
+		if (t !in operatorPrecedence)
+		{
+			reportError("syntax error token : %s", tk);
+			assert(false);
+		}
+		return operatorPrecedence[t];
+	}
+
+	Token nextToken()
+	{
+		return tokens[index++];
+	}
+
+	ASTnode primary()
+	{
+		Token tk = nextToken();
+		ASTnode n;
+		switch(tk.type)
+		{
+			case Token.Type.intLiteral:
+				return new IntLiteral(tk.value);
+			default:
+				reportError("bad primary token %s", tk.type);
+				assert(false);
+		}
+	}
+
+	ASTnode binExpr(int lastPred)
+	{
+		ASTnode left = primary();
+		if (index >= tokens.length)
+			return left;
+
+		while(opPrecedence(tokens[index]) > lastPred)
+		{
+			Token tk = nextToken();
+			BinExpr.Type opType = BinExpr.toBinExprType(tk.type);
+			ASTnode right = binExpr(operatorPrecedence[opType]);
+			left = new BinExpr(left, right, opType);
+			if (index >= tokens.length)
+				break;
+		}
+
+		return left;
+	}
+
+	ASTnode multiplicativeExpr()
+	{
+		ASTnode left = primary();
+		if (index >= tokens.length)
+			return left;
+		
+		while(tokens[index].type == Token.type.star || 
+			tokens[index].type == Token.type.slash)
+		{
+			Token tk = nextToken();
+			ASTnode right = primary();
+			left = new BinExpr(left, right, BinExpr.toBinExprType(tk.type));
+			if (index >= tokens.length)
+				break;
+		}
+		return left;
+	}
+
+	ASTnode additiveExpr()
+	{
+		ASTnode left = multiplicativeExpr();
+
+		if (index >= tokens.length)
+			return left;
+		
+		while(index < tokens.length)
+		{
+			Token tk = nextToken();
+			ASTnode right = multiplicativeExpr();
+			left = new BinExpr(left, right, BinExpr.toBinExprType(tk.type));
+		}
+
+		return left;
+	}
+
+	void parse()
+	{
+		entryPoint = binExpr(0);
+	}
+
 	invariant
 	{
-		assert(index < tokens.length);
+		assert(index <= tokens.length);
 	}
 
 	ASTnode entryPoint;

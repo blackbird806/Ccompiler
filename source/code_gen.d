@@ -129,6 +129,7 @@ class X86_64_CodeGenerator
 					
 				case BinExpr.Type.multiply:
 					return genMul(left, right);
+					
 				default:
 					assert(false);
 			}
