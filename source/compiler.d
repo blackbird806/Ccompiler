@@ -4,45 +4,33 @@ import std.uni;
 import std.conv;
 import std.format;
 import std.algorithm;
-
-struct Token
-{
-	enum Type {
-		plus,
-		minus,
-		star,
-		slash,
-		intLiteral
-	}
+import lexer;
 	
-	ASTnode.Type toArithmeticOp()
+ASTnode.Type toArithmeticOp(Token t)
+{
+	switch(t.type)
 	{
-		switch(type)
-		{
-			case Type.plus:
-				return ASTnode.Type.add;
-				
-			case Type.minus:
-				return ASTnode.Type.substract;
-				
-			case Type.star:
-				return ASTnode.Type.multiply;
-				
-			case Type.slash:
-				return ASTnode.Type.divide;
-			default:
-			assert(false);
-		}
+		case Token.Type.plus:
+			return ASTnode.Type.add;
+			
+		case Token.Type.minus:
+			return ASTnode.Type.substract;
+			
+		case Token.Type.star:
+			return ASTnode.Type.multiply;
+			
+		case Token.Type.slash:
+			return ASTnode.Type.divide;
+		default:
+		assert(false);
 	}
-
-	Type type;
-	int value;
 }
 
 enum operatorPrecedence = [	ASTnode.Type.add: 1, ASTnode.Type.substract: 1,  // @suppress(dscanner.performance.enum_array_literal)
-										ASTnode.Type.multiply: 2, ASTnode.Type.divide: 2];
+							ASTnode.Type.multiply: 2, ASTnode.Type.divide: 2];
 
-static immutable registers = [Register("%r8"), Register("%r9"), Register("%r10"), Register("%r11")];
+
+static immutable registers = [ Register("%r8"), Register("%r9"), Register("%r10"), Register("%r11") ];
 
 class Compiler
 {
@@ -50,84 +38,12 @@ class Compiler
 
 	this(string source)
 	{
-		this.source = source;
-	}
-
-	auto next()
-	{
-		return source[++index];
-	}
-
-	auto current()
-	{
-		return source[index];
-	}
-
-	auto skip()
-	{
-		for(char c = current(); c.isWhite; c = next()) { }
-		return current();
-	}
-
-	auto scanInt()
-	{
-		auto tmp = index;
-        while (index < source.length && source[index].isNumber) { index++; }
-		debug write("int:", source[tmp .. index], " ");
-        return to!int(source[tmp .. index]);
-	}
-
-	auto scan()
-	{
-		Token t;
-		immutable c = skip();
-		switch (c)
-		{
-			case '+':
-				t.type = Token.Type.plus;
-				next();
-			break;
-			case '-':
-				t.type = Token.Type.minus;
-				next();
-			break;
-			case '*':
-				t.type = Token.Type.star;
-				next();
-			break;
-			case '/':
-				t.type = Token.Type.slash;
-				next();
-			break;
-
-			default:
-			if (isNumber(c))
-			{
-				t.value = scanInt();
-				t.type = Token.Type.intLiteral;
-				break;
-			}
-
-			writeln("error bad token");
-		}
-		return t;
+		lexer = new Lexer(source);
 	}
 
 	void lex()
 	{
-		debug writeln("start lexing ========");
-		while(index < source.length)
-		{
-			Token tk = scan();
-			debug writeln(tk.type);
-			tokens ~= tk;
-		}
-		debug writeln("end lexing ========");
-	}
-
-	auto nextToken()
-	{
-		return tokens[tokenIndex++];
+		tokens = lexer.lex();
 	}
 
 	auto opPrecedence(Token tk)
@@ -140,7 +56,12 @@ class Compiler
 		return operatorPrecedence[tk.toArithmeticOp];
 	}
 
-	auto primary()
+	auto nextToken()
+	{
+		return tokens[tokenIndex++];
+	}
+
+	ASTnode primary()
 	{
 		auto tk = nextToken();
 		ASTnode n;
@@ -365,16 +286,10 @@ class Compiler
 		genPostamble();
 	}
 
-	invariant
-	{
-		assert(index <= source.length);
-	}
-
+	Lexer lexer;
 	Token[] tokens;
 	Register[] freeRegisters;
-	string source;
 	string genCode;
-	uint index;
 	uint tokenIndex;
 	uint line;
 }

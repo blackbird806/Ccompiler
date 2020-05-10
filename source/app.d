@@ -1,15 +1,17 @@
 import std.stdio;
 import std.file : write;
+import std.process : execute;
 import compiler;
 
-int main(string[] args)
+void main(string[] args)
 {
-	auto cmp = new Compiler("25 * 4+ 2/1*8 /2");
+	auto cmp = new Compiler("5*5+20-10");
 	cmp.lex();
-	// immutable r = cmp.interpret();
-	// writeln("result ", r);
 	cmp.compile();
-
 	write("a.s", cmp.genCode);
-	return 0;
+	
+	// execute(["gcc", "a.s"]);
+	// writeln("\nstarting progam ...\n");
+	// execute(["./a.out"]).output.writeln;
+	// writeln("progam ended");
 }
