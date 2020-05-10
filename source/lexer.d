@@ -26,18 +26,18 @@ struct Token
 	SourceLocation location;
 }
 
-enum keywords = ["print": Token.Type.K_print];// @suppress(dscanner.performance.enum_array_literal)
-
 class Lexer
 {
+	enum keywords = [ "print" : Token.Type.K_print ]; // @suppress(dscanner.performance.enum_array_literal)
+	
 	this(string code)
 	{
 		source = code;
 	}
 
-	void reportError(string msg)
+	void reportError(Args...)(string fmt, Args args)
 	{
-		writefln("[Lexer] Error line %d: %s", lineCount, msg);
+		writefln("[Lexer] Error line %d: " ~  fmt, lineCount, args);
 	}
 
 	char current()
