@@ -7,7 +7,7 @@ import code_gen;
 
 void main(string[] args)
 {
-	auto lexer = new Lexer(" print 5 * 5; 
+	auto lexer = new Lexer(" print 5 * 5 + 2-4; 
 	print 54 * 2;");
 
 	lexer.lex();

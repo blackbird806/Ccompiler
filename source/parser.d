@@ -1,6 +1,6 @@
 module parser;
 
-import std.stdio : writefln, writeln;
+import std.stdio;
 import lexer;
 
 void reportError(Args...)(string fmt, Args args)
@@ -247,24 +247,54 @@ class Parser
 	{
 		class ASTprinter : ASTvisitor
 		{
+			uint indentLevel = 0;
+			uint[] indentStack;
+
+			void printIndent()
+			{
+				foreach (i; 0 .. indentLevel)
+				{
+					write("  ");
+				}
+			}
+
+			void pushIndent()
+			{
+				indentStack ~= indentLevel;
+			}
+
+			void popIndent()
+			{
+				indentLevel = indentStack[$-1];
+				indentStack = indentStack[0 .. $-1];
+			}
+
+			void print(Args...)(string msg, Args args)
+			{
+				printIndent();
+				writefln(msg, args);
+			}
+
 			override void visit(BinExpr binNode)
 			{
-				if (binNode.left)
-					binNode.left.accept(this);
-				if (binNode.right)
-					binNode.right.accept(this);
-
-				writefln("left %s \t op %s \t right %s \n", binNode.left, binNode.right, binNode.opType);
+				pushIndent();
+				indentLevel++;
+				binNode.left.accept(this);
+				popIndent();
+				print("op : %s", binNode.opType);
+				indentLevel++;
+				binNode.right.accept(this);
 			}
 
 			override void visit(IntLiteral intNode)
 			{
-				writefln("int value : %d", intNode.value);
+				print("int value : %d", intNode.value);
 			}
 
 			override void visit(PrintKeyword printNode)
 			{
-				writefln("print");
+				print("print");
+				indentLevel++;
 				printNode.child.accept(this);
 			}
 		}
