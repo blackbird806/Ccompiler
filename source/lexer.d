@@ -84,9 +84,13 @@ class Lexer
 	Nullable!Token scan()
 	{
 		Token t;
+		
+		if (index >= source.length)
+			return Nullable!Token(); // end of source
+		
 		immutable c = skip();
 		
-		if (index >= source.length - 1)
+		if (index >= source.length)
 			return Nullable!Token(); // end of source
 
 		switch (c)
@@ -110,7 +114,12 @@ class Lexer
 			
 			case ';':
 				t.type = Token.Type.semicolon;
-				next();
+				if (index == source.length-1)
+				{	
+					index++;
+				}
+				else
+					next();
 			break;
 
 			default:

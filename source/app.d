@@ -5,18 +5,19 @@ import lexer;
 import parser;
 import code_gen;
 
-
 void main(string[] args)
 {
-	auto lexer = new Lexer(" print 5 *  5+20 - 1; ");
+	auto lexer = new Lexer(" print 5 * 5; 
+	print 54 * 2;");
+
 	lexer.lex();
 	auto p = new Parser(lexer.tokens);
-	// p.parse();
+	p.parse();
 	p.printAST();
 
-	// auto cg = new X86_64_CodeGenerator(p.entryPoint);
-	// cg.generateCode();
-	// write("a.s", cg.genCode);
+	auto cg = new X86_64_CodeGenerator(p.statements);
+	cg.generateCode();
+	write("a.s", cg.genCode);
 
 	version (linux) 
 	{

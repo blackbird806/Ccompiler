@@ -11,7 +11,7 @@ void reportError(Args...)(string fmt, Args args)
 // automaticly generate specialized visit method for each child of ASTNode
 string genVisitMethods()
 {
-	import std.traits;
+	import std.traits; // @suppress(dscanner.suspicious.local_imports)
 	
 	string codeGen;
 	static foreach(memStr; __traits(allMembers, parser))
@@ -122,15 +122,6 @@ class Parser
 	this(Token[] tks)
 	{
 		tokens = tks;
-		entryPoint = new BinExpr(
-			new BinExpr(
-				new IntLiteral(5),
-				new IntLiteral(2),
-				BinExpr.Type.multiply
-			),
-			new IntLiteral(12),
-			BinExpr.Type.add
-		);
 	}
 
 	uint opPrecedence(Token tk)
@@ -152,10 +143,10 @@ class Parser
 	ASTnode primary()
 	{
 		Token tk = nextToken();
-		ASTnode n;
 		switch(tk.type)
 		{
 			case Token.Type.intLiteral:
+				debug writefln("int token : %d, index : %d ", tk.value, index);
 				return new IntLiteral(tk.value);
 			default:
 				reportError("bad primary token %s", tk.type);
@@ -219,19 +210,37 @@ class Parser
 		return left;
 	}
 
+	void expect(Token.Type type)
+	{
+		Token n = nextToken();
+		if (n.type != type)
+			reportError("%s token expected instead of %s", type, n.type);
+	}
+
+	void statement()
+	{
+		while (index < tokens.length)
+		{
+			Token n = nextToken();
+			if (n.type == Token.Type.K_print)
+			{
+				statements ~= new PrintKeyword(binExpr(0));
+				expect(Token.Type.semicolon);
+			}
+			else
+				reportError("A valid program must start with print keyword !");
+		}
+	}
+
 	void parse()
 	{
-		if (tokens[0].type == Token.Type.K_print)
-		{
-			entryPoint = new PrintKeyword(binExpr(0));
-		}
-		else
-			entryPoint = binExpr(0);
+		statement();
 	}
 
 	void printAST()
 	{
-		printAST(entryPoint);
+		foreach (stmt; statements)
+			printAST(stmt);
 	}
 
 	void printAST(ASTnode node)
@@ -261,7 +270,7 @@ class Parser
 		}
 
 		auto printer = new ASTprinter();
-		entryPoint.accept(printer);
+		node.accept(printer);
 	}
 
 	invariant
@@ -269,7 +278,7 @@ class Parser
 		assert(index <= tokens.length);
 	}
 
-	ASTnode entryPoint;
+	ASTnode[] statements;
 	uint index = 0;
 	Token[] tokens;
 }

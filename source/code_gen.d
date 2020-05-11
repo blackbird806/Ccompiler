@@ -15,9 +15,9 @@ static immutable registers = [ Register("%r8"), Register("%r9"), Register("%r10"
 
 class X86_64_CodeGenerator
 {
-	this(ASTnode entry)
+	this(ASTnode[] entry)
 	{
-		entryPoint = entry;
+		entryPoints = entry;
 	}
 
 	void freeAllRegiters()
@@ -34,7 +34,7 @@ class X86_64_CodeGenerator
 
 	auto allocRegister()
 	{
-		assert(freeRegisters.length > 0);
+		assert(freeRegisters.length > 0, "no more registers available !");
 		auto r = freeRegisters[0];
 		freeRegisters = freeRegisters[1 .. $];
 		return r;
@@ -139,21 +139,28 @@ class X86_64_CodeGenerator
 			IntLiteral intNode = cast(IntLiteral) node;
 			return genLoad(intNode.value);
 		}
-
-		reportError("bad ASTNode type : %s", node);
-		assert(0);
+		else if (type == typeid(PrintKeyword))
+		{
+			PrintKeyword printNode = cast(PrintKeyword) node;
+			genPrintRegister(generateASM(printNode.child));
+		}
+		else
+		{
+			reportError("bad ASTNode type : %s", node);
+		}
+		return allocRegister();
 	}
 
 	void generateCode()
 	{
 		freeAllRegiters();
 		genPreamble();
-		auto result = generateASM(entryPoint);
-		genPrintRegister(result);
+		foreach (entry; entryPoints)
+			auto result = generateASM(entry);
 		genPostamble();
 	}
 
-	ASTnode entryPoint;
+	ASTnode[] entryPoints;
 	string genCode;
 	Register[] freeRegisters;
 }
