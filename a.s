@@ -10,7 +10,7 @@ movq	$5, %r9
 imulq	%r8, %r9
 movq	$20, %r10
 addq	%r9, %r10
-movq	$10, %r11
+movq	$1, %r11
 subq	%r11, %r10
 lea .LC0(%rip), %rdi
 movq %r10, %rsi

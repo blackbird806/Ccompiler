@@ -2,6 +2,7 @@ module lexer;
 import std.stdio : writefln, writeln, write;
 import std.uni;
 import std.conv : to;
+import std.typecons : Nullable;
 
 struct SourceLocation
 {
@@ -52,7 +53,8 @@ class Lexer
 
 	char skip()
 	{
-		for(char c = current(); c.isWhite; c = next()) { 
+		for(char c = current(); c.isWhite && index < source.length - 1; c = next()) {
+			debug writefln("skip index %d", index);
 			if (c == '\n')
 				lineCount++;
 		}
@@ -62,27 +64,31 @@ class Lexer
 	int scanInt()
 	{
 		uint tmp = index;
-        while (index < source.length && source[index].isNumber) { index++; }
-		debug write("int:", source[tmp .. index], " ");
+        while (index < source.length && current().isNumber) { index++; }
+		debug writeln("int:", source[tmp .. index], " ");
         return to!int(source[tmp .. index]);
 	}
 
 	string scanIdent()
 	{
-		char c = source[index];
+		char c = current();
 		uint start = index;
 		while((c.isAlphaNum || c == '_') && index < source.length)
 		{
-			c = source[index++];	
+			c = next();	
 		}
 
 		return source[start .. index];
 	}
 
-	Token scan()
+	Nullable!Token scan()
 	{
 		Token t;
 		immutable c = skip();
+		
+		if (index >= source.length - 1)
+			return Nullable!Token(); // end of source
+
 		switch (c)
 		{
 			case '+':
@@ -112,7 +118,6 @@ class Lexer
 			{
 				t.value = scanInt();
 				t.type = Token.Type.intLiteral;
-				break;
 			} 
 			else if (isAlpha(c) || c == '_')
 			{
@@ -123,33 +128,34 @@ class Lexer
 					t.type = *ktype;
 				}
 				else {
-					reportError("identifier not supported atm");
+					reportError("identifier not supported : \"%s\"", name);
 				}
 			}
-
-			reportError("error bad token");
+			else
+				reportError("error bad token");
 		}
 		t.location = SourceLocation(lineCount);
-		return t;
+		return Nullable!Token(t);
 	}
 
 	Token[] lex()
 	in(index == 0)	// ensure lex is called only once
 	{
-		debug writeln("start lexing ========");
-		while(index < source.length)
+		debug writeln("======== start lexing ========");
+		Nullable!Token tk = scan();
+		while(!tk.isNull)
 		{
-			Token tk = scan();
-			debug writeln("token type : ",  tk.type);
 			tokens ~= tk;
+			tk = scan();
 		}
-		debug writeln("end lexing ========");
+		debug writeln("======== end lexing ========");
 		return tokens;
 	}
 
 	invariant
 	{
 		assert(index <= source.length);
+		assert(source.length > 0);
 	}
 
 	string source;
