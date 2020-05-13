@@ -1,13 +1,14 @@
-import std.stdio;
+import std.stdio : writeln;
 import std.file : write;
 import std.process : execute;
-import lexer;
-import parser;
-import code_gen;
+import lexer : Lexer;
+import parser : Parser;
+import code_gen : X86_64_CodeGenerator;
 
 void main(string[] args)
 {
-	auto lexer = new Lexer(" print 5 * 5 + 2-4; 
+	auto lexer = new Lexer(" 
+	print 5 * 5 + 2-4; 
 	print 54 * 2;");
 
 	lexer.lex();
@@ -19,9 +20,8 @@ void main(string[] args)
 	cg.generateCode();
 	write("a.s", cg.genCode);
 
-	version (linux) 
+	version (linux)
 	{
-		int a;
 		execute(["gcc", "a.s"]);
 		writeln("\nstarting progam ...\n");
 		execute(["./a.out"]).output.writeln;

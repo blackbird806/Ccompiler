@@ -8,6 +8,11 @@ void reportError(Args...)(string fmt, Args args)
 	writefln("[parser] error : " ~ fmt, args);
 }
 
+class Symbol
+{
+
+}
+
 // automaticly generate specialized visit method for each child of ASTNode
 string genVisitMethods()
 {
@@ -23,8 +28,15 @@ string genVisitMethods()
 			codeGen ~= q{void visit(} ~ memStr ~ q{);};
 		}
 	}
-
 	return codeGen;
+}
+
+mixin template implementVisitor()
+{
+	override void accept(ASTvisitor v)
+	{
+		v.visit(this);
+	}
 }
 
 interface ASTvisitor
@@ -35,14 +47,6 @@ interface ASTvisitor
 abstract class ASTnode
 {
 	void accept(ASTvisitor);
-}
-
-mixin template implementVisitor()
-{
-	override void accept(ASTvisitor v)
-	{
-		v.visit(this);
-	}
 }
 
 class BinExpr : ASTnode

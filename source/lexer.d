@@ -16,6 +16,7 @@ struct Token
 		minus,
 		star,
 		slash,
+		equal,
 		intLiteral,
 		identifier,
 		semicolon,
@@ -46,6 +47,12 @@ class Lexer
 		return source[index];
 	}
 
+	char peek(int n)
+	in (n + index < source.length && n + index > 0)
+	{
+		return source[index + n];
+	}
+
 	char next()
 	{
 		return source[++index];
@@ -53,11 +60,12 @@ class Lexer
 
 	char skip()
 	{
-		for(char c = current(); c.isWhite && index < source.length - 1; c = next()) {
+		for(char c = current(); c.isWhite && index < source.length-1; c = next()) { // @suppress(dscanner.suspicious.length_subtraction)
 			debug writefln("skip index %d", index);
 			if (c == '\n')
 				lineCount++;
 		}
+
 		return current();
 	}
 
@@ -65,7 +73,7 @@ class Lexer
 	{
 		uint tmp = index;
         while (index < source.length && current().isNumber) { index++; }
-		debug writeln("int:", source[tmp .. index], " ");
+		// debug writeln("int:", source[tmp .. index], " ");
         return to!int(source[tmp .. index]);
 	}
 
@@ -84,14 +92,8 @@ class Lexer
 	Nullable!Token scan()
 	{
 		Token t;
-		
-		if (index >= source.length)
-			return Nullable!Token(); // end of source
-		
-		immutable c = skip();
-		
-		if (index >= source.length)
-			return Nullable!Token(); // end of source
+
+		immutable char c = skip();
 
 		switch (c)
 		{
@@ -111,15 +113,15 @@ class Lexer
 				t.type = Token.Type.slash;
 				next();
 			break;
-			
+			case '=':
+				t.type = Token.Type.equal;
+				next();
+			break;
 			case ';':
 				t.type = Token.Type.semicolon;
-				if (index == source.length-1)
-				{	
-					index++;
-				}
-				else
-					next();
+				if (index == source.length-1) // @suppress(dscanner.suspicious.length_subtraction)
+					return Nullable!Token(); 
+				next();
 			break;
 
 			default:
@@ -127,7 +129,7 @@ class Lexer
 			{
 				t.value = scanInt();
 				t.type = Token.Type.intLiteral;
-			} 
+			}
 			else if (isAlpha(c) || c == '_')
 			{
 				string name = scanIdent();
@@ -152,10 +154,12 @@ class Lexer
 	{
 		debug writeln("======== start lexing ========");
 		Nullable!Token tk = scan();
+		debug writeln(tk);
 		while(!tk.isNull)
 		{
 			tokens ~= tk;
 			tk = scan();
+			debug writeln(tk);
 		}
 		debug writeln("======== end lexing ========");
 		return tokens;
