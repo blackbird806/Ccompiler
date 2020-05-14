@@ -142,6 +142,8 @@ class Lexer
 					reportError("identifier not supported : \"%s\"", name);
 				}
 			}
+			else if (c.isWhite)
+				return Nullable!Token(); // last char is white
 			else
 				reportError("error bad token");
 		}
@@ -152,7 +154,6 @@ class Lexer
 	Token[] lex()
 	in(index == 0)	// ensure lex is called only once
 	{
-		debug writeln("======== start lexing ========");
 		Nullable!Token tk = scan();
 		debug writeln(tk);
 		while(!tk.isNull)
@@ -161,7 +162,6 @@ class Lexer
 			tk = scan();
 			debug writeln(tk);
 		}
-		debug writeln("======== end lexing ========");
 		return tokens;
 	}
 
