@@ -28,9 +28,7 @@ auto genRegisterArray()
 	
 	string code = "[";
 	foreach(i; 8 .. 16)
-	{
 		code ~= `Register("%r` ~ to!string(i) ~ `"), `;
-	}
 	code ~= "]";
 	return code;
 }
@@ -113,7 +111,7 @@ class X86_64_CodeGenerator
 	void genVariableDecl(VarDecl decl)
 	in (!(decl.varName in varAddresses))
 	{
-		stackOffset -= 4; // TODO sizeof var
+		stackOffset -= 8; // TODO sizeof var
 		varAddresses[decl.varName] = VarAdress(stackOffset);
 	}
 

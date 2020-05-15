@@ -11,8 +11,8 @@ void main(string[] args)
 		int test;
 		int test2;
 		test = 5;
-		test = 22;
-		print 5 * test;
+		test2 = 21;
+		print 5 * test + test2;
 	");
 	
 	debug writeln("======== start lexing ========");

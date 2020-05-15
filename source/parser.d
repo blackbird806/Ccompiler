@@ -39,8 +39,6 @@ interface ASTvisitor
 	mixin(genVisitMethods());
 }
 
-
-
 abstract class ASTnode
 {
 	void accept(ASTvisitor);
