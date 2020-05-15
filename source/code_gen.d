@@ -5,13 +5,37 @@ import std.algorithm;
 
 import parser;
 
+private void reportError(Args...)(string fmt, Args args)
+{
+	import std.stdio :writefln;
+	writefln("[code gen] error : " ~ fmt, args);
+}
+
 struct Register
 {
 	string name;
 	int value;
 }
 
-static immutable registers = [ Register("%r8"), Register("%r9"), Register("%r10"), Register("%r11") ];
+struct VarAdress
+{
+	int stackOffset;
+}
+
+auto genRegisterArray()
+{
+	import std.conv : to;
+	
+	string code = "[";
+	foreach(i; 8 .. 16)
+	{
+		code ~= `Register("%r` ~ to!string(i) ~ `"), `;
+	}
+	code ~= "]";
+	return code;
+}
+
+static immutable registers = mixin(genRegisterArray());
 
 class X86_64_CodeGenerator
 {
@@ -32,7 +56,7 @@ class X86_64_CodeGenerator
 		freeRegisters ~= r;
 	}
 
-	auto allocRegister()
+	Register allocRegister()
 	{
 		assert(freeRegisters.length > 0, "no more registers available !");
 		auto r = freeRegisters[0];
@@ -40,7 +64,7 @@ class X86_64_CodeGenerator
 		return r;
 	}
 
-	auto genLoad(int val)
+	Register genLoad(int val)
 	{
 		auto register = allocRegister();
 		register.value = val;
@@ -48,28 +72,28 @@ class X86_64_CodeGenerator
 		return register;
 	}
 
-	auto genAdd(Register r1, Register r2)
+	Register genAdd(Register r1, Register r2)
 	{
 		genCode ~= format!"addq\t%s, %s\n"(r1.name, r2.name);
 		freeRegister(r1);
 		return r2;
 	}
 
-	auto genSub(Register r1, Register r2)
+	Register genSub(Register r1, Register r2)
 	{
 		genCode ~= format!"subq\t%s, %s\n"(r2.name, r1.name);
 		freeRegister(r2);
 		return r1;
 	}
 
-	auto genMul(Register r1, Register r2)
+	Register genMul(Register r1, Register r2)
 	{
 		genCode ~= format!"imulq\t%s, %s\n"(r1.name, r2.name);
 		freeRegister(r1);
 		return r2;
 	}
 
-	auto genDiv(Register r1, Register r2)
+	Register genDiv(Register r1, Register r2)
 	{
 		genCode ~= format!"movq\t%s, %%rax\n"(r1.name);
 		genCode ~= "cqo\n";
@@ -84,6 +108,26 @@ class X86_64_CodeGenerator
 		genCode ~= format!"lea .LC0(%%rip), %%rdi\n";
 		genCode ~= format!"movq %s, %%rsi\n"(r.name);
 		genCode ~= "call printf\n";
+	}
+
+	void genVariableDecl(VarDecl decl)
+	in (!(decl.varName in varAddresses))
+	{
+		stackOffset -= 4; // TODO sizeof var
+		varAddresses[decl.varName] = VarAdress(stackOffset);
+	}
+
+	void genVarAssign(Variable var, Register r)
+	in (var.name in varAddresses)
+	{
+		genCode ~= format!"movq %s, %d(%%rbp)\n"(r.name, varAddresses[var.name].stackOffset);
+	}
+
+	Register genVarStore(Variable var)
+	{
+		Register r = allocRegister();
+		genCode ~= format!"movq %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.name);
+		return r;
 	}
 
 	void genPreamble()
@@ -144,6 +188,19 @@ class X86_64_CodeGenerator
 			PrintKeyword printNode = cast(PrintKeyword) node;
 			genPrintRegister(generateASM(printNode.child));
 		}
+		else if (type == typeid(VarDecl))
+		{
+			genVariableDecl(cast(VarDecl) node);
+		}
+		else if (type == typeid(AssignStatement))
+		{
+			AssignStatement assignNode = cast(AssignStatement) node;
+			genVarAssign(assignNode.var, generateASM(assignNode.right));
+		}
+		else if (type == typeid(Variable))
+		{
+			return genVarStore(cast(Variable) node);
+		}
 		else
 		{
 			reportError("bad ASTNode type : %s", node);
@@ -163,4 +220,7 @@ class X86_64_CodeGenerator
 	ASTnode[] entryPoints;
 	string genCode;
 	Register[] freeRegisters;
+	
+	int stackOffset;
+	VarAdress[string] varAddresses;
 }

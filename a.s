@@ -5,24 +5,15 @@
 main:
 pushq   %rbp
 movq    %rsp, %rbp
-movq	$5, %r8
-movq	$5, %r9
-imulq	%r8, %r9
-movq	$2, %r10
-addq	%r9, %r10
-movq	$4, %r11
-subq	%r11, %r10
+movq	$5, %r10
+movq %r10, -4(%rbp)
+movq	$22, %r12
+movq %r12, -4(%rbp)
+movq	$5, %r14
+movq -4(%rbp), %r15
+imulq	%r14, %r15
 lea .LC0(%rip), %rdi
-movq %r10, %rsi
-call printf
-movq	$25, %r9
-movq	$2, %r11
-movq	%r9, %rax
-cqo
-idivq	%r11
-movq	%rax, %r11
-lea .LC0(%rip), %rdi
-movq %r11, %rsi
+movq %r15, %rsi
 call printf
 movq $0, %rax
 popq %rbp

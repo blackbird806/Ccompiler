@@ -7,10 +7,12 @@ import code_gen : X86_64_CodeGenerator;
 
 void main(string[] args)
 {
-	auto lexer = new Lexer(" 
-	print 5 * 5 + 2-4; 
-	print 25 / 2;
-	
+	auto lexer = new Lexer("
+		int test;
+		int test2;
+		test = 5;
+		test = 22;
+		print 5 * test;
 	");
 	
 	debug writeln("======== start lexing ========");
@@ -22,7 +24,7 @@ void main(string[] args)
 	p.parse();
 	debug writeln("======== end parsing ========");
 
-	p.printAST();
+	debug p.printAST();
 
 	auto cg = new X86_64_CodeGenerator(p.statements);
 	debug writeln("======== start code gen ========");

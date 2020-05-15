@@ -3,14 +3,9 @@ module parser;
 import std.stdio;
 import lexer;
 
-void reportError(Args...)(string fmt, Args args)
+private void reportError(Args...)(string fmt, Args args)
 {
 	writefln("[parser] error : " ~ fmt, args);
-}
-
-class Symbol
-{
-
 }
 
 // automaticly generate specialized visit method for each child of ASTNode
@@ -43,6 +38,8 @@ interface ASTvisitor
 {
 	mixin(genVisitMethods());
 }
+
+
 
 abstract class ASTnode
 {
@@ -113,6 +110,53 @@ class PrintKeyword : ASTnode
 	ASTnode child;
 }
 
+class VarDecl : ASTnode
+{
+	mixin implementVisitor;
+
+	this(Variable.Type t, string name)
+	{
+		type = t;
+		varName = name;
+	}
+
+	Variable.Type type;
+	string varName;
+}
+
+class AssignStatement : ASTnode
+{
+	mixin implementVisitor;
+
+	this(Variable v, ASTnode r)
+	{
+		var = v;
+		right = r;
+	}
+
+	Variable var;
+	ASTnode right;
+}
+
+class Variable : ASTnode
+{
+	enum Type {
+		int_
+	}
+
+	mixin implementVisitor;
+
+	this(string varName, Type t)
+	{
+		name = varName;
+		type = t;
+	}
+
+	string name;
+	Type type;
+}
+
+
 enum operatorPrecedence = [	 // @suppress(dscanner.performance.enum_array_literal)
 							BinExpr.Type.add: 1, 
 							BinExpr.Type.substract: 1,
@@ -150,8 +194,14 @@ class Parser
 		switch(tk.type)
 		{
 			case Token.Type.intLiteral:
-				debug writefln("int token : %d, index : %d ", tk.value, index);
-				return new IntLiteral(tk.value);
+				debug writefln("int token : %d, index : %d ", tk.value_int, index);
+				return new IntLiteral(tk.value_int);
+			case Token.Type.identifier:
+				if (!(tk.identifier_name in symTable))
+				{
+					reportError("undefined identifier : %s", tk.identifier_name);
+				}
+				return new Variable(tk.identifier_name, Variable.Type.int_);
 			default:
 				reportError("bad primary token %s", tk.type);
 				assert(false);
@@ -214,11 +264,44 @@ class Parser
 		return left;
 	}
 
-	void expect(Token.Type type)
+	// ensure next token is of type "type"
+	// return result of nextToken()
+	Token expect(Token.Type type)
 	{
 		Token n = nextToken();
 		if (n.type != type)
-			reportError("%s token expected instead of %s", type, n.type);
+			reportError("line %d : %s token expected instead of %s", n.location.lineNum, type, n.type);
+		return n;
+	}
+
+	ASTnode varDecl(Token n)
+	in(n.type == Token.Type.K_int) // only int are supported currently
+	{
+		Token varidentTk = expect(Token.Type.identifier);
+		bool symbolExist = true;
+
+		// https://dlang.org/spec/hash-map.html#inserting_if_not_present
+		Variable newSym = symTable.require(varidentTk.identifier_name, 
+		{
+			symbolExist = false;
+			return new Variable(varidentTk.identifier_name, Variable.Type.int_);
+		}());
+		
+		if (symbolExist)
+		{
+			reportError("symbol \"%s\" already defined", varidentTk.identifier_name);
+		}
+
+		return new VarDecl(Variable.Type.int_, varidentTk.identifier_name);
+	}
+
+	ASTnode assignementStatement(Token identTk)
+	in(identTk.type == Token.Type.identifier)
+	{
+		expect(Token.Type.equal);
+		ASTnode right = binExpr(0);
+		// TODO check if symbol is lvalue
+		return new AssignStatement(cast(Variable) symTable[identTk.identifier_name], right);
 	}
 
 	void statement()
@@ -226,13 +309,25 @@ class Parser
 		while (index < tokens.length)
 		{
 			Token n = nextToken();
-			if (n.type == Token.Type.K_print)
+
+			switch(n.type)
 			{
-				statements ~= new PrintKeyword(binExpr(0));
-				expect(Token.Type.semicolon);
+				case Token.Type.K_print:
+					statements ~= new PrintKeyword(binExpr(0));
+					expect(Token.Type.semicolon);
+				break;
+				case Token.Type.K_int:
+					statements ~= varDecl(n);
+					expect(Token.Type.semicolon);
+				break;
+				case Token.Type.identifier:
+					statements ~= assignementStatement(n);
+					expect(Token.Type.semicolon);
+				break;
+				default:
+					reportError("Syntax error line %d : token %s", n.location.lineNum, n);
+				break;
 			}
-			else
-				reportError("A valid program must start with print keyword !");
 		}
 	}
 
@@ -249,7 +344,9 @@ class Parser
 
 	void printAST(ASTnode node)
 	{
-		class ASTprinter : ASTvisitor
+		import std.typecons : BlackHole;
+
+		class ASTprinter : BlackHole!ASTvisitor
 		{
 			uint indentLevel = 0;
 			uint[] indentStack;
@@ -295,6 +392,22 @@ class Parser
 				print("int value : %d", intNode.value);
 			}
 
+			override void visit(VarDecl decl)
+			{
+				print("variable declaration %s : %s", decl.type, decl.varName);
+			}
+
+			override void visit(AssignStatement stmt)
+			{
+				print("assignation %s :", stmt.var.name);
+				stmt.right.accept(this);
+			}
+			
+			override void visit(Variable var)
+			{
+				print("variable : %s", var.name);
+			}
+
 			override void visit(PrintKeyword printNode)
 			{
 				print("print");
@@ -312,6 +425,7 @@ class Parser
 		assert(index <= tokens.length);
 	}
 
+	Variable[string] symTable;
 	ASTnode[] statements;
 	uint index = 0;
 	Token[] tokens;

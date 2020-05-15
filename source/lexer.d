@@ -20,24 +20,32 @@ struct Token
 		intLiteral,
 		identifier,
 		semicolon,
-		K_print
+		K_print,
+		K_int
 	}
 	
 	Type type;
-	int value;
 	SourceLocation location;
+	
+	union 
+	{
+		int value_int;
+		string identifier_name;
+	}
 }
 
 class Lexer
 {
-	enum keywords = [ "print" : Token.Type.K_print ]; // @suppress(dscanner.performance.enum_array_literal)
+	enum keywords = [ 	"print" : Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
+						"int" : Token.Type.K_int,
+						]; 
 	
 	this(string code)
 	{
 		source = code;
 	}
 
-	void reportError(Args...)(string fmt, Args args)
+	private void reportError(Args...)(string fmt, Args args)
 	{
 		writefln("[Lexer] Error line %d: " ~  fmt, lineCount, args);
 	}
@@ -127,7 +135,7 @@ class Lexer
 			default:
 			if (isNumber(c))
 			{
-				t.value = scanInt();
+				t.value_int = scanInt();
 				t.type = Token.Type.intLiteral;
 			}
 			else if (isAlpha(c) || c == '_')
@@ -138,8 +146,10 @@ class Lexer
 				{
 					t.type = *ktype;
 				}
-				else {
-					reportError("identifier not supported : \"%s\"", name);
+				else // identifier 
+				{
+					t.type = Token.Type.identifier;
+					t.identifier_name = name;
 				}
 			}
 			else if (c.isWhite)
