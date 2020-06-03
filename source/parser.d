@@ -5,7 +5,7 @@ import lexer;
 
 private void reportError(Args...)(string fmt, Args args)
 {
-	writefln("[parser] error : " ~ fmt, args);
+	writefln("[parser] error " ~ fmt, args);
 }
 
 // automaticly generate specialized visit method for each child of ASTNode
@@ -48,16 +48,25 @@ class BinExpr : ASTnode
 {
 	enum Type
 	{
-		add, substract, multiply, divide, nullOP
+		add, substract, multiply, divide,  // arithmetic
+		equal, notEqual, less, greater, lessEqual, greaterEqual, // comparison
+		nullOP
 	}
 
 	static Type toBinExprType(Token.Type tktype)
 	{
 		enum opTypes = [ // @suppress(dscanner.performance.enum_array_literal)
-			Token.Type.plus 	: Type.add,
-			Token.Type.minus 	: Type.substract,
-			Token.Type.star 	: Type.multiply,
-			Token.Type.slash 	: Type.divide,
+			Token.Type.plus 			: Type.add,
+			Token.Type.minus 			: Type.substract,
+			Token.Type.star 			: Type.multiply,
+			Token.Type.slash 			: Type.divide,
+
+			Token.Type.equalEqual 		: Type.equal,
+			Token.Type.less 			: Type.less,
+			Token.Type.greater 			: Type.greater,
+			Token.Type.greaterEqual 	: Type.greaterEqual,
+			Token.Type.lessEqual 		: Type.lessEqual,
+			Token.Type.notEqual 		: Type.notEqual,
 		];
 
 		Type* t = tktype in opTypes;
@@ -154,12 +163,19 @@ class Variable : ASTnode
 	Type type;
 }
 
-
 enum operatorPrecedence = [	 // @suppress(dscanner.performance.enum_array_literal)
 							BinExpr.Type.add: 1, 
 							BinExpr.Type.substract: 1,
 							BinExpr.Type.multiply: 2,
-							BinExpr.Type.divide: 2 
+							BinExpr.Type.divide: 2,
+
+							BinExpr.Type.equal: 3,
+							BinExpr.Type.notEqual: 3,
+
+							BinExpr.Type.less: 4,
+							BinExpr.Type.lessEqual: 4,
+							BinExpr.Type.greater: 4,
+							BinExpr.Type.greaterEqual: 4,
 						];
 
 
@@ -175,7 +191,7 @@ class Parser
 		BinExpr.Type t = BinExpr.toBinExprType(tk.type);
 		if (t !in operatorPrecedence)
 		{
-			reportError("syntax error token : %s", tk);
+			reportError("line %d : syntax error token : %s", tk.location.lineNum, tk.type);
 			assert(false);
 		}
 		return operatorPrecedence[t];
@@ -192,16 +208,15 @@ class Parser
 		switch(tk.type)
 		{
 			case Token.Type.intLiteral:
-				debug writefln("int token : %d, index : %d ", tk.value_int, index);
 				return new IntLiteral(tk.value_int);
 			case Token.Type.identifier:
 				if (!(tk.identifier_name in symTable))
 				{
-					reportError("undefined identifier : %s", tk.identifier_name);
+					reportError("line %d : undefined identifier : %s", tk.location.lineNum, tk.identifier_name);
 				}
 				return new Variable(tk.identifier_name, Variable.Type.int_);
 			default:
-				reportError("bad primary token %s", tk.type);
+				reportError("line %d : bad primary token %s", tk.location.lineNum, tk.type);
 				assert(false);
 		}
 	}
@@ -287,7 +302,7 @@ class Parser
 		
 		if (symbolExist)
 		{
-			reportError("symbol \"%s\" already defined", varidentTk.identifier_name);
+			reportError("line %d : symbol \"%s\" already defined", varidentTk.location.lineNum, varidentTk.identifier_name);
 		}
 
 		return new VarDecl(Variable.Type.int_, varidentTk.identifier_name);

@@ -2,6 +2,8 @@ module code_gen;
 
 import std.format;
 import std.algorithm;
+import std.stdio;
+import std.typecons : WhiteHole;
 
 import parser;
 
@@ -11,14 +13,38 @@ private void reportError(Args...)(string fmt, Args args)
 	writefln("[code gen] error : " ~ fmt, args);
 }
 
-struct Register
+public interface Storage
 {
-	string name;
-	int value;
+	string asmLocation() const;
 }
 
-struct VarAdress
+class Register : Storage
 {
+	this(string n)
+	{
+		name = n;
+	}
+
+	string asmLocation() const
+	{
+		return name;
+	}
+
+	string name;
+}
+
+class VarAddress : Storage
+{
+	this(int offset)
+	{
+		stackOffset = offset;
+	}
+
+	string asmLocation() const
+	{
+		return format!"%d(%%rbp)"(stackOffset);
+	}
+
 	int stackOffset;
 }
 
@@ -28,12 +54,12 @@ auto genRegisterArray()
 	
 	string code = "[";
 	foreach(i; 8 .. 16)
-		code ~= `Register("%r` ~ to!string(i) ~ `"), `;
+		code ~= `new Register("%r` ~ to!string(i) ~ `"), `;
 	code ~= "]";
 	return code;
 }
 
-static immutable registers = mixin(genRegisterArray());
+static registers = mixin(genRegisterArray());
 
 class X86_64_CodeGenerator
 {
@@ -52,58 +78,98 @@ class X86_64_CodeGenerator
 		if (freeRegisters.canFind!(a => a.name == r.name))
 			return;
 		freeRegisters ~= r;
+		debug writefln("freeRegister : %s", r.name);
 	}
 
 	Register allocRegister()
+	in(freeRegisters.length > 0, "no more registers available !")
 	{
-		assert(freeRegisters.length > 0, "no more registers available !");
 		auto r = freeRegisters[0];
+		debug writefln("allocRegister : %s", r.name);
 		freeRegisters = freeRegisters[1 .. $];
 		return r;
+	}
+
+	string getUniqueName()
+	{
+		import std.conv : to;
+
+		return "__tmpVar" ~ to!string(nameUid++);
+	}
+
+	Storage allocStorage()
+	{
+		if (freeRegisters.length > 0)
+			return allocRegister();
+
+		debug writeln("allocStorage");
+		if (freedStorage.length > 0)
+		{
+			Storage s = freedStorage[0];
+			freedStorage = freedStorage[1 .. $];
+			return s;
+		}
+
+		string tmpName =  getUniqueName();
+		genVariableDecl(new VarDecl(Variable.Type.int_, tmpName));
+		return varAddresses[tmpName];
+	}
+
+	void freeStorage(Storage s)
+	{
+		debug writeln("freeStorage");
+
+		if (typeid(s) == typeid(Register))
+		{
+			freeRegister(cast(Register) s);
+		}
+		else
+		{
+			freedStorage ~= s;
+		}	
 	}
 
 	Register genLoad(int val)
 	{
 		auto register = allocRegister();
-		register.value = val;
-		genCode ~= format!"movq\t$%d, %s\n"(val, register.name);
+		genCode ~= format!"movq $%d, %s\n"(val, register.name);
 		return register;
 	}
 
 	Register genAdd(Register r1, Register r2)
 	{
-		genCode ~= format!"addq\t%s, %s\n"(r1.name, r2.name);
+		genCode ~= format!"addq %s, %s\n"(r1.name, r2.name);
 		freeRegister(r1);
 		return r2;
 	}
 
 	Register genSub(Register r1, Register r2)
 	{
-		genCode ~= format!"subq\t%s, %s\n"(r2.name, r1.name);
+		genCode ~= format!"subq %s, %s\n"(r2.name, r1.name);
 		freeRegister(r2);
 		return r1;
 	}
 
 	Register genMul(Register r1, Register r2)
 	{
-		genCode ~= format!"imulq\t%s, %s\n"(r1.name, r2.name);
+		genCode ~= format!"imulq %s, %s\n"(r1.name, r2.name);
 		freeRegister(r1);
 		return r2;
 	}
 
 	Register genDiv(Register r1, Register r2)
 	{
-		genCode ~= format!"movq\t%s, %%rax\n"(r1.name);
+		genCode ~= format!"movq %s, %%rax\n"(r1.name);
 		genCode ~= "cqo\n";
-		genCode ~= format!"idivq\t%s\n"(r2.name);
-		genCode ~= format!"movq\t%%rax, %s\n"(r2.name);
+		genCode ~= format!"idivq %s\n"(r2.name);
+		genCode ~= format!"movq %%rax, %s\n"(r2.name);
 		freeRegister(r1);
 		return r2;
 	}
 
 	void genPrintRegister(Register r)
 	{
-		genCode ~= format!"lea .LC0(%%rip), %%rdi\n";
+		genCode ~= "lea .LC0(%rip), %rdi\n";
 		genCode ~= format!"movq %s, %%rsi\n"(r.name);
 		genCode ~= "call printf\n";
 	}
@@ -112,20 +178,61 @@ class X86_64_CodeGenerator
 	in (!(decl.varName in varAddresses))
 	{
 		stackOffset -= 8; // TODO sizeof var
-		varAddresses[decl.varName] = VarAdress(stackOffset);
+		varAddresses[decl.varName] = new VarAddress(stackOffset);
 	}
 
-	void genVarAssign(Variable var, Register r)
+	void genVarAssign(Variable var, Storage s)
 	in (var.name in varAddresses)
 	{
-		genCode ~= format!"movq %s, %d(%%rbp)\n"(r.name, varAddresses[var.name].stackOffset);
+		debug(CommentedGen) genCode ~= format!"; assign %s\n"(var.name);
+		genCode ~= format!"movq %s, %d(%%rbp)\n"(s.asmLocation(), varAddresses[var.name].stackOffset);
 	}
 
 	Register genVarStore(Variable var)
 	{
 		Register r = allocRegister();
+		debug(CommentedGen) genCode ~= format!"; store %s\n"(var.name);
 		genCode ~= format!"movq %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.name);
 		return r;
+	}
+	
+	void genClearRegister(Register r)
+	{
+		genCode ~= format!"xorq %s, %s\n"(r.name, r.name);
+	}
+
+	Register genCmp(BinExpr.Type opType)(Register r1, Register r2)
+	{
+		genCode ~= format!"cmpq %s, %s\n"(r2.name, r1.name);
+		const string regName8 = r2.name ~ "b"; // @Todo : func to get lower bits of registers
+		with (BinExpr.Type) {
+		switch(opType)
+		{
+			case less:
+				genCode ~= format!"setl %s\n"(regName8);
+			break;
+			case greater:
+				genCode ~= format!"setg %s\n"(regName8);
+			break;
+			case lessEqual:
+				genCode ~= format!"setle %s\n"(regName8);
+			break;
+			case greaterEqual:
+				genCode ~= format!"setge %s\n"(regName8);
+			break;
+			case equal:
+				genCode ~= format!"sete %s\n"(regName8);
+			break;
+			case notEqual:
+				genCode ~= format!"setne %s\n"(regName8);
+			break;
+			default:
+			assert(false, "type is not a cmp operator");
+		}
+		} // with (BinExpr.Type)
+		genCode ~= format!"andq $255, %s\n"(r2.name);
+		freeRegister(r1);
+		return r2;
 	}
 
 	void genPreamble()
@@ -133,7 +240,7 @@ class X86_64_CodeGenerator
 		genCode ~=
 		".text\n" ~ 
 		".LC0:\n" ~ 
-		`.string "num %d\n"` ~ "\n" ~
+		`.string "out %d\n"` ~ "\n" ~
 		".globl main\n" ~
 		"main:\n" ~
         "pushq   %rbp\n" ~
@@ -171,9 +278,12 @@ class X86_64_CodeGenerator
 					
 				case BinExpr.Type.multiply:
 					return genMul(left, right);
-					
+				
+				case BinExpr.Type.equal:
+					return genCmp!(BinExpr.Type.equal)(left, right);
+
 				default:
-					assert(false);
+					assert(false, "unrecognized binexpr");
 			}
 		}
 		else if (type == typeid(IntLiteral))
@@ -215,10 +325,15 @@ class X86_64_CodeGenerator
 		genPostamble();
 	}
 
+
 	ASTnode[] entryPoints;
 	string genCode;
 	Register[] freeRegisters;
 	
+	Storage[] freedStorage;
+
+	uint nameUid;
+	
 	int stackOffset;
-	VarAdress[string] varAddresses;
+	VarAddress[string] varAddresses;
 }

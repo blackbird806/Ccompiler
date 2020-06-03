@@ -7,13 +7,12 @@ import code_gen : X86_64_CodeGenerator;
 
 void main(string[] args)
 {
-	auto lexer = new Lexer("
-		int test;
-		int test2;
-		test = 5;
-		test2 = 21;
-		print 5 * test + test2;
-	");
+	auto lexer = new Lexer(q{
+		print 5 == 5;
+		print 5 == 1;
+		print 5 == 3;
+		print 1 == 1;
+	});
 	
 	debug writeln("======== start lexing ========");
 	lexer.lex();

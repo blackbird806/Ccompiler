@@ -12,14 +12,26 @@ struct SourceLocation
 struct Token
 {
 	enum Type {
+
 		plus,
 		minus,
 		star,
 		slash,
 		equal,
+
+		equalEqual,
+		notEqual,
+		less,
+		greater,
+		lessEqual,
+		greaterEqual,
+
 		intLiteral,
+
 		identifier,
+
 		semicolon,
+
 		K_print,
 		K_int
 	}
@@ -102,31 +114,56 @@ class Lexer
 		Token t;
 
 		immutable char c = skip();
-
+		with (Token) {
 		switch (c)
 		{
 			case '+':
-				t.type = Token.Type.plus;
+				t.type = Type.plus;
 				next();
 			break;
 			case '-':
-				t.type = Token.Type.minus;
+				t.type = Type.minus;
 				next();
 			break;
 			case '*':
-				t.type = Token.Type.star;
+				t.type = Type.star;
 				next();
 			break;
 			case '/':
-				t.type = Token.Type.slash;
+				t.type = Type.slash;
 				next();
 			break;
 			case '=':
-				t.type = Token.Type.equal;
+				if (next() == '=')
+					t.type = Type.equalEqual;
+				else
+					t.type = Type.equal;
 				next();
 			break;
+			case '<':
+				if (next() == '=')
+					t.type = Type.lessEqual;
+				else
+					t.type = Type.less;
+				next();
+			break;
+			case '>':
+				if (next() == '=')
+					t.type = Type.greaterEqual;
+				else
+					t.type = Type.greater;
+				next();
+			break;
+			case '!':
+				if (next() == '=') {
+					t.type = Type.notEqual;
+					next();
+				}
+				else
+					reportError("char '!' is not a valid token");
+			break;
 			case ';':
-				t.type = Token.Type.semicolon;
+				t.type = Type.semicolon;
 				if (index == source.length-1) // @suppress(dscanner.suspicious.length_subtraction)
 					return Nullable!Token(); 
 				next();
@@ -156,7 +193,8 @@ class Lexer
 				return Nullable!Token(); // last char is white
 			else
 				reportError("error bad token");
-		}
+		} // switch
+		} // with(Token)
 		t.location = SourceLocation(lineCount);
 		return Nullable!Token(t);
 	}
