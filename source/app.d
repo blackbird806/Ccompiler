@@ -8,11 +8,17 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(q{
-		print 5 == 5;
-		print 5 == 1;
-		print 5 == 3;
-		print 1 == 1;
-	});
+		{
+			if (2 > 5)
+			{
+				print 5;
+			}
+			if (5 > 2)
+			{
+				print 3;
+			}
+		}
+		});
 	
 	debug writeln("======== start lexing ========");
 	lexer.lex();

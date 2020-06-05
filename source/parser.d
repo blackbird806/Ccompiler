@@ -163,6 +163,33 @@ class Variable : ASTnode
 	Type type;
 }
 
+class IfStatement : ASTnode
+{
+	mixin implementVisitor;
+
+	this(ASTnode c, ASTnode i, ASTnode e)
+	{
+		condition = c;
+		ifBody = i;
+		elseBody = e;
+	}
+
+	ASTnode condition, ifBody, elseBody;
+}
+
+class Glue : ASTnode
+{
+	mixin implementVisitor;
+
+	this(ASTnode t, ASTnode l)
+	{
+		tree = t;
+		left = l;
+	}
+
+	ASTnode tree, left;
+}
+
 enum operatorPrecedence = [	 // @suppress(dscanner.performance.enum_array_literal)
 							BinExpr.Type.add: 1, 
 							BinExpr.Type.substract: 1,
@@ -202,6 +229,18 @@ class Parser
 		return tokens[index++];
 	}
 
+	Token peekToken()
+	{
+		if (index + 1 >= tokens.length)
+		{
+			Token t;
+			// @Review TokenType EOF ?
+			t.type = Token.Type.invalid;
+			return t;
+		}
+		return tokens[index+1];
+	}
+
 	ASTnode primary()
 	{
 		Token tk = nextToken();
@@ -225,7 +264,7 @@ class Parser
 	{
 		ASTnode left = primary();
 
-		if (tokens[index].type == Token.Type.semicolon)
+		if (tokens[index].type == Token.Type.semicolon || tokens[index].type == Token.Type.closedParenthesis)
 			return left;
 
 		while(opPrecedence(tokens[index]) > lastPred)
@@ -235,7 +274,7 @@ class Parser
 			ASTnode right = binExpr(operatorPrecedence[opType]);
 			left = new BinExpr(left, right, opType);
 
-			if (tokens[index].type == Token.Type.semicolon)
+			if (tokens[index].type == Token.Type.semicolon || tokens[index].type == Token.Type.closedParenthesis)
 				return left;
 		}
 
@@ -317,36 +356,81 @@ class Parser
 		return new AssignStatement(cast(Variable) symTable[identTk.identifier_name], right);
 	}
 
-	void statement()
+	ASTnode ifStatement()
 	{
+		expect(Token.Type.openParenthesis);
+		ASTnode condition = binExpr(0);
+		expect(Token.Type.closedParenthesis);
+
+		ASTnode ifBody = compoundStatement();
+
+		ASTnode elseBody;
+		if (peekToken().type == Token.Type.K_else)
+		{
+			nextToken(); // skip else keyword
+			elseBody = compoundStatement();
+		}
+
+		return new IfStatement(condition, ifBody, elseBody);
+	}
+
+	ASTnode compoundStatement()
+	{
+		ASTnode left, tree;
+		
+		expect(Token.type.openBrace);
+
 		while (index < tokens.length)
 		{
 			Token n = nextToken();
-
+			
+			with (Token.Type) {
 			switch(n.type)
 			{
-				case Token.Type.K_print:
-					statements ~= new PrintKeyword(binExpr(0));
-					expect(Token.Type.semicolon);
+				case K_print:
+					tree = new PrintKeyword(binExpr(0));
+					expect(semicolon);
 				break;
-				case Token.Type.K_int:
-					statements ~= varDecl(n);
-					expect(Token.Type.semicolon);
+				case K_int:
+					tree = varDecl(n);
+					expect(semicolon);
 				break;
-				case Token.Type.identifier:
-					statements ~= assignementStatement(n);
-					expect(Token.Type.semicolon);
+				case identifier:
+					tree = assignementStatement(n);
+					expect(semicolon);
 				break;
+				case K_if:
+					tree = ifStatement();
+				break;
+				case openBrace:
+					index--; // walk back to pass the expect(openBrace)
+					tree = compoundStatement();
+				break;
+				case closedBrace:
+				return left;
 				default:
-					reportError("Syntax error line %d : token %s", n.location.lineNum, n);
+					reportError("Syntax error line %d : token %s", n.location.lineNum, n.type);
 				break;
 			}
-		}
+			} // with (Token.Type)
+
+			if (tree)
+			{
+				if (!left)
+					left = tree;
+				else
+					left = new Glue(tree, left);
+			}
+
+		} // while
+
+		reportError("missing closed brace");
+		return null;
 	}
 
 	void parse()
 	{
-		statement();
+		statements ~= compoundStatement();
 	}
 
 	void printAST()
@@ -419,6 +503,23 @@ class Parser
 			override void visit(Variable var)
 			{
 				print("variable : %s", var.name);
+			}
+
+			override void visit(Glue glue)
+			{
+				glue.left.accept(this);
+				glue.tree.accept(this);
+			}
+
+			override void visit(IfStatement stmt)
+			{
+				print("if :");
+				stmt.condition.accept(this);
+				stmt.ifBody.accept(this);
+				if (stmt.elseBody)
+				{
+					stmt.elseBody.accept(this);
+				}
 			}
 
 			override void visit(PrintKeyword printNode)

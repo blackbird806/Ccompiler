@@ -31,9 +31,17 @@ struct Token
 		identifier,
 
 		semicolon,
+		openBrace,
+		closedBrace,
+		openParenthesis,
+		closedParenthesis,
 
 		K_print,
-		K_int
+		K_int,
+		K_if,
+		K_else,
+
+		invalid,
 	}
 	
 	Type type;
@@ -49,7 +57,9 @@ struct Token
 class Lexer
 {
 	enum keywords = [ 	"print" : Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
-						"int" : Token.Type.K_int,
+						"int" 	: Token.Type.K_int,
+						"if" 	: Token.Type.K_if,
+						"else" 	: Token.Type.K_else,
 						]; 
 	
 	this(string code)
@@ -89,6 +99,13 @@ class Lexer
 		return current();
 	}
 
+	void skipLine()
+	{
+		for(char c = current(); c != '\n' && index < source.length-1; c = next()) // @suppress(dscanner.suspicious.length_subtraction)
+			{}
+		lineCount++;
+	}
+
 	int scanInt()
 	{
 		uint tmp = index;
@@ -114,56 +131,76 @@ class Lexer
 		Token t;
 
 		immutable char c = skip();
-		with (Token) {
+		with (Token.Type) {
 		switch (c)
 		{
 			case '+':
-				t.type = Type.plus;
+				t.type = plus;
 				next();
 			break;
 			case '-':
-				t.type = Type.minus;
+				t.type = minus;
 				next();
 			break;
 			case '*':
-				t.type = Type.star;
+				t.type = star;
 				next();
 			break;
 			case '/':
-				t.type = Type.slash;
+				if (next() == '/') { // single line comment
+					skipLine();
+					break;
+				}
+				t.type = slash;
+				next();
+			break;
+			case '(':
+				t.type = openParenthesis;
+				next();
+			break;
+			case ')':
+				t.type = closedParenthesis;
+				next();
+			break;
+			case '{':
+				t.type = openBrace;
+				next();
+			break;
+			case '}':
+				t.type = closedBrace;
 				next();
 			break;
 			case '=':
 				if (next() == '=')
-					t.type = Type.equalEqual;
+					t.type = equalEqual;
 				else
-					t.type = Type.equal;
+					t.type = equal;
 				next();
 			break;
 			case '<':
 				if (next() == '=')
-					t.type = Type.lessEqual;
+					t.type = lessEqual;
 				else
-					t.type = Type.less;
+					t.type = less;
 				next();
 			break;
 			case '>':
 				if (next() == '=')
-					t.type = Type.greaterEqual;
+					t.type = greaterEqual;
 				else
-					t.type = Type.greater;
+					t.type = greater;
 				next();
 			break;
 			case '!':
 				if (next() == '=') {
-					t.type = Type.notEqual;
+					t.type = notEqual;
 					next();
 				}
 				else
 					reportError("char '!' is not a valid token");
 			break;
 			case ';':
-				t.type = Type.semicolon;
+				t.type = semicolon;
 				if (index == source.length-1) // @suppress(dscanner.suspicious.length_subtraction)
 					return Nullable!Token(); 
 				next();

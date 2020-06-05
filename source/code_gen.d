@@ -48,7 +48,7 @@ class VarAddress : Storage
 	int stackOffset;
 }
 
-auto genRegisterArray()
+string genRegisterArray()
 {
 	import std.conv : to;
 	
@@ -70,6 +70,7 @@ class X86_64_CodeGenerator
 
 	void freeAllRegiters()
 	{
+		debug writefln("free all registers");
 		freeRegisters = registers.dup;
 	}
 
@@ -235,6 +236,87 @@ class X86_64_CodeGenerator
 		return r2;
 	}
 
+	uint createLabel()
+	{
+		return nextLabelId++;
+	}
+
+	void genLabel(uint labelId)
+	{
+		genCode ~= format!"L%d:\n"(labelId);
+	}
+
+	void genJump(uint labelId)
+	{
+		genCode ~= format!"jmp L%d\n"(labelId);
+	}
+
+	void genCondJump(IfStatement stmt, uint targetLabel)
+	{
+		if (typeid(stmt.condition) == typeid(BinExpr))
+		{
+			auto expr = cast(BinExpr) stmt.condition;
+			with (BinExpr.Type) {
+			switch(expr.opType)
+			{
+				// we want to jump only if the condition is false 
+				case less:
+					genCode ~= format!"jg L%s\n"(targetLabel);
+				break;
+				case greater:
+					genCode ~= format!"jl L%s\n"(targetLabel);
+				break;
+				case lessEqual:
+					genCode ~= format!"jge L%s\n"(targetLabel);
+				break;
+				case greaterEqual:
+					genCode ~= format!"jle L%s\n"(targetLabel);
+				break;
+				case equal:
+					genCode ~= format!"jne L%s\n"(targetLabel);
+				break;
+				case notEqual:
+					genCode ~= format!"je L%s\n"(targetLabel);
+				break;
+
+				default:
+				goto arithemtic; // ahem
+			}
+			} // with (BinExpr.Type)
+		} // if binexpr
+		else if (typeid(stmt.condition) == typeid(IntLiteral))
+		{
+			arithemtic:
+			Register result = generateASM(stmt.condition);
+			genCode ~= format!"jne L%s\n"(targetLabel);
+		}
+		else
+		{
+			reportError("bad condition in if statment");
+		}
+	}
+
+	void genIfStatement(IfStatement n)
+	{
+		Register result = generateASM(n.condition);
+		uint endLabel = createLabel();
+		uint elseLabel = createLabel();
+		
+		genCondJump(n, n.elseBody ? elseLabel : endLabel);
+
+		generateASM(n.ifBody);
+		freeAllRegiters();
+
+		if (n.elseBody)
+		{
+			genJump(endLabel);
+			genLabel(elseLabel);
+			generateASM(n.elseBody);
+			freeAllRegiters();
+		}
+		genLabel(endLabel);
+	}
+
 	void genPreamble()
 	{
 		genCode ~=
@@ -279,8 +361,25 @@ class X86_64_CodeGenerator
 				case BinExpr.Type.multiply:
 					return genMul(left, right);
 				
+				// @TODO : find a more elegant way to do this
+
 				case BinExpr.Type.equal:
 					return genCmp!(BinExpr.Type.equal)(left, right);
+
+				case BinExpr.Type.notEqual:
+					return genCmp!(BinExpr.Type.notEqual)(left, right);
+
+				case BinExpr.Type.less:
+					return genCmp!(BinExpr.Type.less)(left, right);
+
+				case BinExpr.Type.lessEqual:
+					return genCmp!(BinExpr.Type.lessEqual)(left, right);
+
+				case BinExpr.Type.greater:
+					return genCmp!(BinExpr.Type.greater)(left, right);
+
+				case BinExpr.Type.greaterEqual:
+					return genCmp!(BinExpr.Type.greaterEqual)(left, right);
 
 				default:
 					assert(false, "unrecognized binexpr");
@@ -295,6 +394,7 @@ class X86_64_CodeGenerator
 		{
 			PrintKeyword printNode = cast(PrintKeyword) node;
 			genPrintRegister(generateASM(printNode.child));
+			freeAllRegiters();
 		}
 		else if (type == typeid(VarDecl))
 		{
@@ -309,10 +409,24 @@ class X86_64_CodeGenerator
 		{
 			return genVarStore(cast(Variable) node);
 		}
+		else if (type == typeid(Glue))
+		{
+			auto glue = cast(Glue) node;
+			generateASM(glue.left);
+			freeAllRegiters();
+			generateASM(glue.tree);
+			freeAllRegiters();
+		}
+		else if (type == typeid(IfStatement))
+		{
+			genIfStatement(cast(IfStatement) node);
+		}
 		else
 		{
 			reportError("bad ASTNode type : %s", node);
 		}
+
+		// @TODO : I should not waste a register if not needed 
 		return allocRegister();
 	}
 
@@ -333,6 +447,7 @@ class X86_64_CodeGenerator
 	Storage[] freedStorage;
 
 	uint nameUid;
+	uint nextLabelId;
 	
 	int stackOffset;
 	VarAddress[string] varAddresses;
