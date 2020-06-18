@@ -9,17 +9,20 @@ void main(string[] args)
 {
 	auto lexer = new Lexer(q{
 		{
-			if (2 > 5)
-			{
-				print 5;
-			}
-			if (5 > 2)
+			if (2 < 5)
+			{				
+				print 5; 
+			} 
+//dksjahdkjash
+//dksjahdkjash
+//dksjahdkjash
+			if (5 < 2)
 			{
 				print 3;
 			}
 		}
 		});
-	
+
 	debug writeln("======== start lexing ========");
 	lexer.lex();
 	debug writeln("======== end lexing ========");
@@ -34,7 +37,7 @@ void main(string[] args)
 	auto cg = new X86_64_CodeGenerator(p.statements);
 	debug writeln("======== start code gen ========");
 	cg.generateCode();
-	debug writeln("======== end code gen ========");
+	debug writeln("======== end code gen ==========");
 
 	write("a.s", cg.genCode);
 

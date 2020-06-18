@@ -47,7 +47,7 @@ struct Token
 	Type type;
 	SourceLocation location;
 	
-	union 
+	union
 	{
 		int value_int;
 		string identifier_name;
@@ -60,7 +60,7 @@ class Lexer
 						"int" 	: Token.Type.K_int,
 						"if" 	: Token.Type.K_if,
 						"else" 	: Token.Type.K_else,
-						]; 
+						];
 	
 	this(string code)
 	{
@@ -70,6 +70,7 @@ class Lexer
 	private void reportError(Args...)(string fmt, Args args)
 	{
 		writefln("[Lexer] Error line %d: " ~  fmt, lineCount, args);
+		version (FatalError) assert(0);
 	}
 
 	char current()
@@ -88,10 +89,10 @@ class Lexer
 		return source[++index];
 	}
 
-	char skip()
+	char skipBlank()
 	{
 		for(char c = current(); c.isWhite && index < source.length-1; c = next()) { // @suppress(dscanner.suspicious.length_subtraction)
-			debug writefln("skip index %d", index);
+			// debug writefln("skip index %d", index);
 			if (c == '\n')
 				lineCount++;
 		}
@@ -102,22 +103,24 @@ class Lexer
 	void skipLine()
 	{
 		for(char c = current(); c != '\n' && index < source.length-1; c = next()) // @suppress(dscanner.suspicious.length_subtraction)
-			{}
+			{	}
 		lineCount++;
 	}
 
 	int scanInt()
 	{
 		uint tmp = index;
-        while (index < source.length && current().isNumber) { index++; }
-		// debug writeln("int:", source[tmp .. index], " ");
+        while (index < source.length && current().isNumber) 
+		{ 
+			index++; 
+		}
         return to!int(source[tmp .. index]);
 	}
 
 	string scanIdent()
 	{
 		char c = current();
-		uint start = index;
+		immutable uint start = index;
 		while((c.isAlphaNum || c == '_') && index < source.length)
 		{
 			c = next();	
@@ -126,11 +129,16 @@ class Lexer
 		return source[start .. index];
 	}
 
+	/*
+		scan next unread token 
+		returning null mean end of code
+	*/
 	Nullable!Token scan()
 	{
-		Token t;
+		l_rescan:
 
-		immutable char c = skip();
+		Token t;
+		immutable char c = skipBlank();
 		with (Token.Type) {
 		switch (c)
 		{
@@ -149,7 +157,7 @@ class Lexer
 			case '/':
 				if (next() == '/') { // single line comment
 					skipLine();
-					break;
+					goto l_rescan; // get next token after line comment
 				}
 				t.type = slash;
 				next();
@@ -226,10 +234,10 @@ class Lexer
 					t.identifier_name = name;
 				}
 			}
-			else if (c.isWhite)
+			else if (c.isWhite())
 				return Nullable!Token(); // last char is white
 			else
-				reportError("error bad token");
+				reportError("bad token index[%s] char : '%s'", index, c);
 		} // switch
 		} // with(Token)
 		t.location = SourceLocation(lineCount);

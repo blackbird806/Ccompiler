@@ -9,8 +9,9 @@ import parser;
 
 private void reportError(Args...)(string fmt, Args args)
 {
-	import std.stdio :writefln;
+	import std.stdio : writefln;
 	writefln("[code gen] error : " ~ fmt, args);
+	version (FatalError) assert(0);
 }
 
 public interface Storage
@@ -205,6 +206,7 @@ class X86_64_CodeGenerator
 	Register genCmp(BinExpr.Type opType)(Register r1, Register r2)
 	{
 		genCode ~= format!"cmpq %s, %s\n"(r2.name, r1.name);
+/*
 		const string regName8 = r2.name ~ "b"; // @Todo : func to get lower bits of registers
 		with (BinExpr.Type) {
 		switch(opType)
@@ -232,6 +234,7 @@ class X86_64_CodeGenerator
 		}
 		} // with (BinExpr.Type)
 		genCode ~= format!"andq $255, %s\n"(r2.name);
+		*/
 		freeRegister(r1);
 		return r2;
 	}

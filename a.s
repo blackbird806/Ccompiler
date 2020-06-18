@@ -8,9 +8,7 @@ movq    %rsp, %rbp
 movq $2, %r8
 movq $5, %r9
 cmpq %r9, %r8
-setg %r9b
-andq $255, %r9
-jl L0
+jg L0
 movq $5, %r10
 lea .LC0(%rip), %rdi
 movq %r10, %rsi
@@ -19,9 +17,7 @@ L0:
 movq $5, %r8
 movq $2, %r9
 cmpq %r9, %r8
-setg %r9b
-andq $255, %r9
-jl L2
+jg L2
 movq $3, %r10
 lea .LC0(%rip), %rdi
 movq %r10, %rsi

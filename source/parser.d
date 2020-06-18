@@ -6,6 +6,7 @@ import lexer;
 private void reportError(Args...)(string fmt, Args args)
 {
 	writefln("[parser] error " ~ fmt, args);
+	version (FatalError) assert(0);
 }
 
 // automaticly generate specialized visit method for each child of ASTNode
