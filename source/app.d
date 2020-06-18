@@ -9,16 +9,13 @@ void main(string[] args)
 {
 	auto lexer = new Lexer(q{
 		{
-			if (2 < 5)
-			{				
-				print 5; 
-			} 
-//dksjahdkjash
-//dksjahdkjash
-//dksjahdkjash
-			if (5 < 2)
+			if (2 != 2)
 			{
-				print 3;
+				print 3 * 3;
+			}
+			else
+			{
+				print 48;
 			}
 		}
 		});

@@ -232,14 +232,7 @@ class Parser
 
 	Token peekToken()
 	{
-		if (index + 1 >= tokens.length)
-		{
-			Token t;
-			// @Review TokenType EOF ?
-			t.type = Token.Type.invalid;
-			return t;
-		}
-		return tokens[index+1];
+		return tokens[index];
 	}
 
 	ASTnode primary()
