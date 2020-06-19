@@ -9,13 +9,12 @@ void main(string[] args)
 {
 	auto lexer = new Lexer(q{
 		{
-			if (2 != 2)
+			int a;
+			a = 10;
+			while (a > 0)
 			{
-				print 3 * 3;
-			}
-			else
-			{
-				print 48;
+				print a;
+				a = a - 1;
 			}
 		}
 		});
@@ -40,7 +39,7 @@ void main(string[] args)
 
 	version (linux)
 	{
-		execute(["gcc", "a.s"]);
+		execute(["gcc", "-g", "a.s"]);
 		writeln("\nstarting progam ...\n");
 		execute(["./a.out"]).output.writeln;
 		writeln("progam ended");

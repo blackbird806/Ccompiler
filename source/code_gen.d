@@ -173,7 +173,8 @@ class X86_64_CodeGenerator
 	{
 		genCode ~= "lea .LC0(%rip), %rdi\n";
 		genCode ~= format!"movq %s, %%rsi\n"(r.name);
-		genCode ~= "call printf\n";
+		genCode ~= "xor %eax, %eax\n";
+		genCode ~= "call printf@plt\n";
 	}
 
 	void genVariableDecl(VarDecl decl)
@@ -206,7 +207,7 @@ class X86_64_CodeGenerator
 	Register genCmp(BinExpr.Type opType)(Register r1, Register r2)
 	{
 		genCode ~= format!"cmpq %s, %s\n"(r2.name, r1.name);
-/*
+/* 		TODO:
 		const string regName8 = r2.name ~ "b"; // @Todo : func to get lower bits of registers
 		with (BinExpr.Type) {
 		switch(opType)
@@ -254,7 +255,7 @@ class X86_64_CodeGenerator
 		genCode ~= format!"jmp L%d\n"(labelId);
 	}
 
-	void genCondJump(IfStatement stmt, uint targetLabel)
+	void genCondJump(ConditionalStmt)(ConditionalStmt stmt, uint targetLabel)
 	{
 		if (typeid(stmt.condition) == typeid(BinExpr))
 		{
@@ -320,6 +321,24 @@ class X86_64_CodeGenerator
 		genLabel(endLabel);
 	}
 
+	void genWhileStatement(WhileStatement n)
+	{
+		uint startLabel = createLabel();
+		uint endLabel = createLabel();
+		genLabel(startLabel);
+
+		Register result = generateASM(n.condition);
+		freeAllRegiters();
+		
+		genCondJump(n, endLabel);
+
+		generateASM(n.whileBody);
+		freeAllRegiters();
+
+		genJump(startLabel);
+		genLabel(endLabel);
+	}
+
 	void genPreamble()
 	{
 		genCode ~=
@@ -328,12 +347,15 @@ class X86_64_CodeGenerator
 		`.string "out %d\n"` ~ "\n" ~
 		".globl main\n" ~
 		"main:\n" ~
-        "pushq   %rbp\n" ~
-        "movq    %rsp, %rbp\n";
+        "pushq %rbp\n" ~
+        "movq %rsp, %rbp\n" ~
+		"subq $512, %rsp\n"
+		;
 	}
 
 	void genPostamble()
 	{
+		genCode ~= "addq $512, %rsp\n";
 		genCode ~= "movq $0, %rax\npopq %rbp\nret\n";
 	}
 
@@ -423,6 +445,10 @@ class X86_64_CodeGenerator
 		else if (type == typeid(IfStatement))
 		{
 			genIfStatement(cast(IfStatement) node);
+		}
+		else if (type == typeid(WhileStatement))
+		{
+			genWhileStatement(cast(WhileStatement) node);
 		}
 		else
 		{

@@ -40,6 +40,7 @@ struct Token
 		K_int,
 		K_if,
 		K_else,
+		K_while,
 
 		invalid,
 	}
@@ -60,6 +61,7 @@ class Lexer
 						"int" 	: Token.Type.K_int,
 						"if" 	: Token.Type.K_if,
 						"else" 	: Token.Type.K_else,
+						"while" : Token.Type.K_while,
 						];
 	
 	this(string code)

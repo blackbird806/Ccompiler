@@ -178,6 +178,19 @@ class IfStatement : ASTnode
 	ASTnode condition, ifBody, elseBody;
 }
 
+class WhileStatement : ASTnode
+{
+	mixin implementVisitor;
+
+	this(ASTnode c, ASTnode b)
+	{
+		condition = c;
+		whileBody = b;
+	}
+
+	ASTnode condition, whileBody;
+}
+
 class Glue : ASTnode
 {
 	mixin implementVisitor;
@@ -368,6 +381,17 @@ class Parser
 		return new IfStatement(condition, ifBody, elseBody);
 	}
 
+	ASTnode whileStatement()
+	{
+		expect(Token.Type.openParenthesis);
+		ASTnode condition = binExpr(0);
+		expect(Token.Type.closedParenthesis);
+
+		ASTnode whileBody = compoundStatement();
+
+		return new WhileStatement(condition, whileBody);
+	}
+
 	ASTnode compoundStatement()
 	{
 		ASTnode left, tree;
@@ -395,6 +419,9 @@ class Parser
 				break;
 				case K_if:
 					tree = ifStatement();
+				break;
+				case K_while:
+					tree = whileStatement();
 				break;
 				case openBrace:
 					index--; // walk back to pass the expect(openBrace)
@@ -514,6 +541,13 @@ class Parser
 				{
 					stmt.elseBody.accept(this);
 				}
+			}
+
+			override void visit(WhileStatement stmt)
+			{
+				print("while :");
+				stmt.condition.accept(this);
+				stmt.whileBody.accept(this);
 			}
 
 			override void visit(PrintKeyword printNode)
