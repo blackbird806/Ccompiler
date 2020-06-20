@@ -10,10 +10,13 @@ void main(string[] args)
 	auto lexer = new Lexer(q{
 		{
 			int a;
-			a = 10;
+			a = 100;
 			while (a > 0)
 			{
-				print a;
+				if (a <= 20)
+				{
+					print a;
+				}
 				a = a - 1;
 			}
 		}

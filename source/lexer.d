@@ -72,7 +72,7 @@ class Lexer
 	private void reportError(Args...)(string fmt, Args args)
 	{
 		writefln("[Lexer] Error line %d: " ~  fmt, lineCount, args);
-		version (FatalError) assert(0);
+		debug(FatalError) assert(0);
 	}
 
 	char current()

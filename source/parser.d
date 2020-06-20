@@ -6,7 +6,7 @@ import lexer;
 private void reportError(Args...)(string fmt, Args args)
 {
 	writefln("[parser] error " ~ fmt, args);
-	version (FatalError) assert(0);
+	debug(FatalError) assert(0);
 }
 
 // automaticly generate specialized visit method for each child of ASTNode
@@ -359,8 +359,10 @@ class Parser
 	{
 		expect(Token.Type.equal);
 		ASTnode right = binExpr(0);
-		// TODO check if symbol is lvalue
-		return new AssignStatement(cast(Variable) symTable[identTk.identifier_name], right);
+		Variable* var = identTk.identifier_name in symTable;
+		if (var is null)
+			reportError("unrecognized var : %s", identTk.identifier_name);
+		return new AssignStatement(*var, right);
 	}
 
 	ASTnode ifStatement()

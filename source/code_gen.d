@@ -11,7 +11,7 @@ private void reportError(Args...)(string fmt, Args args)
 {
 	import std.stdio : writefln;
 	writefln("[code gen] error : " ~ fmt, args);
-	version (FatalError) assert(0);
+	debug(FatalError) assert(0);
 }
 
 public interface Storage
@@ -112,7 +112,7 @@ class X86_64_CodeGenerator
 			return s;
 		}
 
-		string tmpName =  getUniqueName();
+		string tmpName = getUniqueName();
 		genVariableDecl(new VarDecl(Variable.Type.int_, tmpName));
 		return varAddresses[tmpName];
 	}
@@ -263,18 +263,63 @@ class X86_64_CodeGenerator
 			with (BinExpr.Type) {
 			switch(expr.opType)
 			{
-				// we want to jump only if the condition is false 
 				case less:
-					genCode ~= format!"jg L%s\n"(targetLabel);
-				break;
-				case greater:
 					genCode ~= format!"jl L%s\n"(targetLabel);
 				break;
+				case greater:
+					genCode ~= format!"jg L%s\n"(targetLabel);
+				break;
 				case lessEqual:
-					genCode ~= format!"jge L%s\n"(targetLabel);
+					genCode ~= format!"jle L%s\n"(targetLabel);
 				break;
 				case greaterEqual:
+					genCode ~= format!"jge L%s\n"(targetLabel);
+				break;
+				case equal:
+					genCode ~= format!"je L%s\n"(targetLabel);
+				break;
+				case notEqual:
+					genCode ~= format!"jne L%s\n"(targetLabel);
+				break;
+
+				default:
+				goto arithemtic; // ahem
+			}
+			} // with (BinExpr.Type)
+		} // if binexpr
+		else if (typeid(stmt.condition) == typeid(IntLiteral))
+		{
+			arithemtic:
+			Register result = generateASM(stmt.condition);
+			genCode ~= format!"jz L%s\n"(targetLabel);
+		}
+		else
+		{
+			reportError("bad condition in if statment");
+		}
+	}
+	
+	// TODO:
+	// not proud of this
+	void genInvertCondJump(ConditionalStmt)(ConditionalStmt stmt, uint targetLabel)
+	{
+		if (typeid(stmt.condition) == typeid(BinExpr))
+		{
+			auto expr = cast(BinExpr) stmt.condition;
+			with (BinExpr.Type) {
+			switch(expr.opType)
+			{
+				case less:
+					genCode ~= format!"jge L%s\n"(targetLabel);
+				break;
+				case greater:
 					genCode ~= format!"jle L%s\n"(targetLabel);
+				break;
+				case lessEqual:
+					genCode ~= format!"jg L%s\n"(targetLabel);
+				break;
+				case greaterEqual:
+					genCode ~= format!"jl L%s\n"(targetLabel);
 				break;
 				case equal:
 					genCode ~= format!"jne L%s\n"(targetLabel);
@@ -292,7 +337,7 @@ class X86_64_CodeGenerator
 		{
 			arithemtic:
 			Register result = generateASM(stmt.condition);
-			genCode ~= format!"jne L%s\n"(targetLabel);
+			genCode ~= format!"jnz L%s\n"(targetLabel);
 		}
 		else
 		{
@@ -302,11 +347,13 @@ class X86_64_CodeGenerator
 
 	void genIfStatement(IfStatement n)
 	{
-		Register result = generateASM(n.condition);
+		generateASM(n.condition);
+		freeAllRegiters();
+
 		uint endLabel = createLabel();
 		uint elseLabel = createLabel();
 		
-		genCondJump(n, n.elseBody ? elseLabel : endLabel);
+		genInvertCondJump(n, n.elseBody ? elseLabel : endLabel);
 
 		generateASM(n.ifBody);
 		freeAllRegiters();
@@ -323,20 +370,19 @@ class X86_64_CodeGenerator
 
 	void genWhileStatement(WhileStatement n)
 	{
+		uint cmpLabel = createLabel();
 		uint startLabel = createLabel();
-		uint endLabel = createLabel();
-		genLabel(startLabel);
 
-		Register result = generateASM(n.condition);
-		freeAllRegiters();
-		
-		genCondJump(n, endLabel);
+		genJump(cmpLabel);
+		genLabel(startLabel);
 
 		generateASM(n.whileBody);
 		freeAllRegiters();
 
-		genJump(startLabel);
-		genLabel(endLabel);
+		genLabel(cmpLabel);
+		Register result = generateASM(n.condition);
+		genCondJump(n, startLabel);
+		freeAllRegiters();
 	}
 
 	void genPreamble()
