@@ -9,16 +9,20 @@ void main(string[] args)
 {
 	auto lexer = new Lexer(q{
 		{
-			int a;
-			a = 100;
-			while (a > 0)
+			int n;
+			int p;
+			int c;
+			int b;
+			n = 5;
+			b = n;
+			p = 4;
+			c = 0;
+			while (c < p-1)
 			{
-				if (a <= 20)
-				{
-					print a;
-				}
-				a = a - 1;
+				n = n * b;
+				c = c + 1;
 			}
+			print n;
 		}
 		});
 

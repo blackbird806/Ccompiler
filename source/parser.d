@@ -204,19 +204,21 @@ class Glue : ASTnode
 	ASTnode tree, left;
 }
 
+// https://en.cppreference.com/w/c/language/operator_precedence
 enum operatorPrecedence = [	 // @suppress(dscanner.performance.enum_array_literal)
-							BinExpr.Type.add: 1, 
-							BinExpr.Type.substract: 1,
-							BinExpr.Type.multiply: 2,
-							BinExpr.Type.divide: 2,
+							BinExpr.Type.multiply: 		3,
+							BinExpr.Type.divide: 		3,
 
-							BinExpr.Type.equal: 3,
-							BinExpr.Type.notEqual: 3,
+							BinExpr.Type.add: 			4, 
+							BinExpr.Type.substract: 	4,
 
-							BinExpr.Type.less: 4,
-							BinExpr.Type.lessEqual: 4,
-							BinExpr.Type.greater: 4,
-							BinExpr.Type.greaterEqual: 4,
+							BinExpr.Type.less: 			6,
+							BinExpr.Type.lessEqual: 	6,
+							BinExpr.Type.greater: 		6,
+							BinExpr.Type.greaterEqual: 	6,
+
+							BinExpr.Type.equal: 		7,
+							BinExpr.Type.notEqual: 		7,
 						];
 
 
@@ -274,7 +276,7 @@ class Parser
 		if (tokens[index].type == Token.Type.semicolon || tokens[index].type == Token.Type.closedParenthesis)
 			return left;
 
-		while(opPrecedence(tokens[index]) > lastPred)
+		while(opPrecedence(tokens[index]) < lastPred)
 		{
 			Token tk = nextToken();
 			BinExpr.Type opType = BinExpr.toBinExprType(tk.type);
@@ -358,7 +360,7 @@ class Parser
 	in(identTk.type == Token.Type.identifier)
 	{
 		expect(Token.Type.equal);
-		ASTnode right = binExpr(0);
+		ASTnode right = binExpr(int.max);
 		Variable* var = identTk.identifier_name in symTable;
 		if (var is null)
 			reportError("unrecognized var : %s", identTk.identifier_name);
@@ -368,7 +370,7 @@ class Parser
 	ASTnode ifStatement()
 	{
 		expect(Token.Type.openParenthesis);
-		ASTnode condition = binExpr(0);
+		ASTnode condition = binExpr(int.max);
 		expect(Token.Type.closedParenthesis);
 
 		ASTnode ifBody = compoundStatement();
@@ -386,7 +388,7 @@ class Parser
 	ASTnode whileStatement()
 	{
 		expect(Token.Type.openParenthesis);
-		ASTnode condition = binExpr(0);
+		ASTnode condition = binExpr(int.max);
 		expect(Token.Type.closedParenthesis);
 
 		ASTnode whileBody = compoundStatement();
@@ -408,7 +410,7 @@ class Parser
 			switch(n.type)
 			{
 				case K_print:
-					tree = new PrintKeyword(binExpr(0));
+					tree = new PrintKeyword(binExpr(int.max));
 					expect(semicolon);
 				break;
 				case K_int:
