@@ -191,6 +191,21 @@ class WhileStatement : ASTnode
 	ASTnode condition, whileBody;
 }
 
+class ForStatement : ASTnode
+{
+	mixin implementVisitor;
+
+	this(ASTnode initialisation, ASTnode condition, ASTnode forBody, ASTnode postOp)
+	{
+		this.initialisation = initialisation;
+		this.condition = condition;
+		this.forBody = forBody;
+		this.postOp = postOp;
+	}
+
+	ASTnode initialisation, condition, forBody, postOp;
+}
+
 class Glue : ASTnode
 {
 	mixin implementVisitor;
@@ -396,6 +411,53 @@ class Parser
 		return new WhileStatement(condition, whileBody);
 	}
 
+	ASTnode forStatement()
+	{
+		expect(Token.Type.openParenthesis);
+		ASTnode initStmt = singleStatement();
+		expect(Token.Type.semicolon);
+		ASTnode condStmt = binExpr(int.max);
+		expect(Token.Type.semicolon);
+		ASTnode postOp = singleStatement();
+		expect(Token.Type.closedParenthesis);
+
+		ASTnode forBody = compoundStatement();
+
+		// reinterpret the for loop as a while
+		ASTnode tree = new Glue(postOp, forBody);
+		tree = new WhileStatement(condStmt, tree);
+		return new Glue(tree, initStmt);
+	}
+	
+	ASTnode singleStatement()
+	{
+		Token n = nextToken();
+		with (Token.Type) {
+		switch(n.type)
+		{
+			case K_print:
+				return new PrintKeyword(binExpr(int.max));
+			case K_int:
+				return varDecl(n);
+			case identifier:
+				return assignementStatement(n);
+			case K_if:
+				return ifStatement();
+			case K_while:
+				return whileStatement();
+			case K_for:
+				return forStatement();
+			case openBrace:
+				index--; // walk back to pass the expect(openBrace)
+				return compoundStatement();
+			default:
+				reportError("Syntax error line %d : token %s", n.location.lineNum, n.type);
+			break;
+		}
+		} // with (Token.Type)
+		return null;
+	}
+
 	ASTnode compoundStatement()
 	{
 		ASTnode left, tree;
@@ -404,47 +466,26 @@ class Parser
 
 		while (index < tokens.length)
 		{
-			Token n = nextToken();
-			
-			with (Token.Type) {
-			switch(n.type)
-			{
-				case K_print:
-					tree = new PrintKeyword(binExpr(int.max));
-					expect(semicolon);
-				break;
-				case K_int:
-					tree = varDecl(n);
-					expect(semicolon);
-				break;
-				case identifier:
-					tree = assignementStatement(n);
-					expect(semicolon);
-				break;
-				case K_if:
-					tree = ifStatement();
-				break;
-				case K_while:
-					tree = whileStatement();
-				break;
-				case openBrace:
-					index--; // walk back to pass the expect(openBrace)
-					tree = compoundStatement();
-				break;
-				case closedBrace:
-				return left;
-				default:
-					reportError("Syntax error line %d : token %s", n.location.lineNum, n.type);
-				break;
-			}
-			} // with (Token.Type)
+			tree = singleStatement();
 
 			if (tree)
 			{
+				const treeid = typeid(tree);
+				if (treeid == typeid(PrintKeyword) || treeid == typeid(VarDecl) || treeid == typeid(AssignStatement))
+				{
+					expect(Token.Type.semicolon);
+				}
+
 				if (!left)
 					left = tree;
 				else
 					left = new Glue(tree, left);
+			}
+
+			if (tokens[index].type == Token.Type.closedBrace)
+			{
+				expect(Token.Type.closedBrace); // consume token
+				return left;
 			}
 
 		} // while

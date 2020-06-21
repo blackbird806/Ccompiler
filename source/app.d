@@ -16,11 +16,9 @@ void main(string[] args)
 			n = 5;
 			b = n;
 			p = 4;
-			c = 0;
-			while (c < p-1)
+			for (c=0; c < p-1; c = c + 1)
 			{
 				n = n * b;
-				c = c + 1;
 			}
 			print n;
 		}

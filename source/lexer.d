@@ -41,6 +41,7 @@ struct Token
 		K_if,
 		K_else,
 		K_while,
+		K_for,
 
 		invalid,
 	}
@@ -62,6 +63,7 @@ class Lexer
 						"if" 	: Token.Type.K_if,
 						"else" 	: Token.Type.K_else,
 						"while" : Token.Type.K_while,
+						"for" 	: Token.Type.K_for,
 						];
 	
 	this(string code)
@@ -157,7 +159,8 @@ class Lexer
 				next();
 			break;
 			case '/':
-				if (next() == '/') { // single line comment
+				if (peek(1) == '/') { // single line comment
+					next();
 					skipLine();
 					goto l_rescan; // get next token after line comment
 				}
@@ -181,28 +184,37 @@ class Lexer
 				next();
 			break;
 			case '=':
-				if (next() == '=')
+				if (peek(1) == '=')
+				{
+					next();
 					t.type = equalEqual;
+				}
 				else
 					t.type = equal;
 				next();
 			break;
 			case '<':
-				if (next() == '=')
+				if (peek(1) == '=')
+				{
+					next();
 					t.type = lessEqual;
+				}
 				else
 					t.type = less;
 				next();
 			break;
 			case '>':
-				if (next() == '=')
+				if (peek(1) == '=')
+				{
+					next();
 					t.type = greaterEqual;
+				}
 				else
 					t.type = greater;
 				next();
 			break;
 			case '!':
-				if (next() == '=') {
+				if (peek(1) == '=') {
 					t.type = notEqual;
 					next();
 				}

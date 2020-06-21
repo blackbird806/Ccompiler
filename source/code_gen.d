@@ -71,7 +71,7 @@ class X86_64_CodeGenerator
 
 	void freeAllRegiters()
 	{
-		debug writefln("free all registers");
+		// debug writefln("free all registers");
 		freeRegisters = registers.dup;
 	}
 
@@ -80,14 +80,14 @@ class X86_64_CodeGenerator
 		if (freeRegisters.canFind!(a => a.name == r.name))
 			return;
 		freeRegisters ~= r;
-		debug writefln("freeRegister : %s", r.name);
+		// debug writefln("freeRegister : %s", r.name);
 	}
 
 	Register allocRegister()
 	in(freeRegisters.length > 0, "no more registers available !")
 	{
 		auto r = freeRegisters[0];
-		debug writefln("allocRegister : %s", r.name);
+		// debug writefln("allocRegister : %s", r.name);
 		freeRegisters = freeRegisters[1 .. $];
 		return r;
 	}
