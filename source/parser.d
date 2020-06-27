@@ -191,19 +191,17 @@ class WhileStatement : ASTnode
 	ASTnode condition, whileBody;
 }
 
-class ForStatement : ASTnode
+class FunctionDeclaration : ASTnode
 {
 	mixin implementVisitor;
 
-	this(ASTnode initialisation, ASTnode condition, ASTnode forBody, ASTnode postOp)
+	this(string name)
 	{
-		this.initialisation = initialisation;
-		this.condition = condition;
-		this.forBody = forBody;
-		this.postOp = postOp;
+		this.name = name;
 	}
 
-	ASTnode initialisation, condition, forBody, postOp;
+	string name;
+	ASTnode funcBody;
 }
 
 class Glue : ASTnode
@@ -349,24 +347,31 @@ class Parser
 			reportError("line %d : %s token expected instead of %s", n.location.lineNum, type, n.type);
 		return n;
 	}
+	
+	/// add a symbol into symtable
+	void addSymbol(string symName, lazy ASTnode symbol)
+	{
+		bool symbolExist = true;
+		// https://dlang.org/spec/hash-map.html#inserting_if_not_present
+		symTable.require(symName, 
+		{
+			symbolExist = false;
+			return symbol;
+		}());
+
+		if (symbolExist)
+		{
+			// @TODO better error support
+			reportError("line %d : symbol \"%s\" already defined", tokens[index].location.lineNum, symName);
+		}
+	}
 
 	ASTnode varDecl(Token n)
 	in(n.type == Token.Type.K_int) // only int are supported currently
 	{
 		Token varidentTk = expect(Token.Type.identifier);
-		bool symbolExist = true;
 
-		// https://dlang.org/spec/hash-map.html#inserting_if_not_present
-		Variable newSym = symTable.require(varidentTk.identifier_name, 
-		{
-			symbolExist = false;
-			return new Variable(varidentTk.identifier_name, Variable.Type.int_);
-		}());
-		
-		if (symbolExist)
-		{
-			reportError("line %d : symbol \"%s\" already defined", varidentTk.location.lineNum, varidentTk.identifier_name);
-		}
+		addSymbol(varidentTk.identifier_name, new Variable(varidentTk.identifier_name, Variable.Type.int_));
 
 		return new VarDecl(Variable.Type.int_, varidentTk.identifier_name);
 	}
@@ -376,10 +381,10 @@ class Parser
 	{
 		expect(Token.Type.equal);
 		ASTnode right = binExpr(int.max);
-		Variable* var = identTk.identifier_name in symTable;
+		ASTnode* var = identTk.identifier_name in symTable;
 		if (var is null)
 			reportError("unrecognized var : %s", identTk.identifier_name);
-		return new AssignStatement(*var, right);
+		return new AssignStatement(cast(Variable) *var, right);
 	}
 
 	ASTnode ifStatement()
@@ -429,6 +434,23 @@ class Parser
 		return new Glue(tree, initStmt);
 	}
 	
+	ASTnode functionDeclaration()
+	{
+		expect(Token.Type.K_void);
+		Token ident = expect(Token.Type.identifier);
+		expect(Token.Type.openParenthesis);
+		// @TODO : parameters 
+		expect(Token.Type.closedParenthesis);
+
+		FunctionDeclaration fn = new FunctionDeclaration(ident.identifier_name);
+		
+		addSymbol(ident.identifier_name, fn);
+
+		fn.funcBody = compoundStatement();
+
+		return fn;
+	}
+
 	ASTnode singleStatement()
 	{
 		Token n = nextToken();
@@ -496,13 +518,14 @@ class Parser
 
 	void parse()
 	{
-		statements ~= compoundStatement();
+		while (index < tokens.length)
+			functions ~= cast(FunctionDeclaration) functionDeclaration();
 	}
 
 	void printAST()
 	{
-		foreach (stmt; statements)
-			printAST(stmt);
+		foreach(fn; functions)
+		printAST(fn);
 	}
 
 	void printAST(ASTnode node)
@@ -571,6 +594,13 @@ class Parser
 				print("variable : %s", var.name);
 			}
 
+			override void visit(FunctionDeclaration fn)
+			{
+				print("function : %s", fn.name);
+				indentLevel++;
+				fn.funcBody.accept(this);
+			}
+
 			override void visit(Glue glue)
 			{
 				glue.left.accept(this);
@@ -612,8 +642,8 @@ class Parser
 		assert(index <= tokens.length);
 	}
 
-	Variable[string] symTable;
-	ASTnode[] statements;
+	FunctionDeclaration[] functions;
+	ASTnode[string] symTable;
 	uint index = 0;
 	Token[] tokens;
 }

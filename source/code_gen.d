@@ -64,9 +64,9 @@ static registers = mixin(genRegisterArray());
 
 class X86_64_CodeGenerator
 {
-	this(ASTnode[] entry)
+	this(ASTnode[] entryPoints)
 	{
-		entryPoints = entry;
+		this.entryPoints = entryPoints;
 	}
 
 	void freeAllRegiters()
@@ -385,24 +385,30 @@ class X86_64_CodeGenerator
 		freeAllRegiters();
 	}
 
-	void genPreamble()
+	void genPreample()
 	{
-		genCode ~=
-		".text\n" ~ 
+		genCode ~= ".text\n" ~ 
 		".LC0:\n" ~ 
-		`.string "out %d\n"` ~ "\n" ~
-		".globl main\n" ~
-		"main:\n" ~
-        "pushq %rbp\n" ~
-        "movq %rsp, %rbp\n" ~
-		"subq $512, %rsp\n"
-		;
+		`.string "out %d\n"` ~ "\n";
 	}
 
-	void genPostamble()
+	void genFnPreamble(FunctionDeclaration fn)
 	{
-		genCode ~= "addq $512, %rsp\n";
-		genCode ~= "movq $0, %rax\npopq %rbp\nret\n";
+		genCode ~= ".text\n" ~
+		format!".globl %s\n"(fn.name) ~
+		format!".type %s, @function\n"(fn.name) ~
+		format!"%s:\n"(fn.name) ~
+		"pushq %rbp\n" ~
+		"movq %rsp, %rbp\n" ~
+		"subq $512, %rsp\n";
+	}
+
+	void genFnPostamble()
+	{
+		genCode ~= "movl $0, %eax\n" ~
+		"popq %rbp\n" ~
+		"addq $512, %rsp\n" ~
+		"ret\n";
 	}
 
 	Register generateASM(ASTnode node)
@@ -496,6 +502,13 @@ class X86_64_CodeGenerator
 		{
 			genWhileStatement(cast(WhileStatement) node);
 		}
+		else if (type == typeid(FunctionDeclaration))
+		{
+			FunctionDeclaration fn = cast(FunctionDeclaration) node;
+			genFnPreamble(fn);
+			generateASM(fn.funcBody);
+			genFnPostamble();
+		}
 		else
 		{
 			reportError("bad ASTNode type : %s", node);
@@ -508,12 +521,10 @@ class X86_64_CodeGenerator
 	void generateCode()
 	{
 		freeAllRegiters();
-		genPreamble();
-		foreach (entry; entryPoints)
-			auto result = generateASM(entry);
-		genPostamble();
+		genPreample();
+		foreach(entryPoint; entryPoints)
+			generateASM(entryPoint);
 	}
-
 
 	ASTnode[] entryPoints;
 	string genCode;

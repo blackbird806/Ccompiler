@@ -42,6 +42,7 @@ struct Token
 		K_else,
 		K_while,
 		K_for,
+		K_void,
 
 		invalid,
 	}
@@ -64,6 +65,7 @@ class Lexer
 						"else" 	: Token.Type.K_else,
 						"while" : Token.Type.K_while,
 						"for" 	: Token.Type.K_for,
+						"void" 	: Token.Type.K_void,
 						];
 	
 	this(string code)
