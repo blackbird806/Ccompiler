@@ -16,8 +16,7 @@ void main(string[] args)
 			i= 10; print i;
 
 			for (i= 1; i <= 5; i= i + 1) { print i; }
-		}
-		});
+			}});
 
 	debug writeln("======== start lexing ========");
 	lexer.lex();

@@ -75,6 +75,7 @@ class Lexer
 	this(string code)
 	{
 		source = code;
+		source ~= " "; // quickfix to avoid out of range error when lexing
 	}
 
 	private void reportError(Args...)(string fmt, Args args)
