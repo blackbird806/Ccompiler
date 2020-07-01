@@ -7,6 +7,6 @@ void main()
 	print a * b;
 	
 	char f;
-	f = 45;
+	f = 45 + a;
 	print f;
 }

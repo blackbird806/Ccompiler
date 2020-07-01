@@ -43,12 +43,14 @@ interface ASTvisitor
 enum PrimitiveType
 {
 	int_,
+	long_,
 	char_,
 	void_,
 }
 
 enum primitiveTypeSizes = [
 	PrimitiveType.int_ 	: int.sizeof,
+	PrimitiveType.int_ 	: long.sizeof,
 	PrimitiveType.char_ : char.sizeof,
 	PrimitiveType.void_ : void.sizeof,
 ];

@@ -270,12 +270,12 @@ class Lexer
 	in(index == 0)	// ensure lex is called only once
 	{
 		Nullable!Token tk = scan();
-		debug writeln(tk);
+		// debug writeln(tk);
 		while(!tk.isNull)
 		{
 			tokens ~= tk;
 			tk = scan();
-			debug writeln(tk);
+			// debug writeln(tk);
 		}
 		return tokens;
 	}
