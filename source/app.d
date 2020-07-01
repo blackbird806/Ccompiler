@@ -8,29 +8,14 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(q{
-		
-		void test(){
-			int x;
-			int y;
-			x = 5;
-			y = 12;
-			print x * y;
-		}
-
 		void main() {
-			int n;
-			int p;
-			int b;
-			n = 5;
-			b = n;
-			p = 4;
-			
-			int c;
-			for (c = 0; c < p-1; c = c + 1)
-			{
-				n = n * b;
-			}
-			print n;
+			int i; char j;
+
+			j= 255; print j;
+			print j + 1;
+			i= 10; print i;
+
+			for (i= 1; i <= 5; i= i + 1) { print i; }
 		}
 		});
 

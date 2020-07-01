@@ -62,6 +62,12 @@ string genRegisterArray()
 
 static registers = mixin(genRegisterArray());
 
+enum movInstr = [
+	1 : "movq",
+	4 : "movq",
+	8 : "movq",
+];
+
 class X86_64_CodeGenerator
 {
 	this(ASTnode[] entryPoints)
@@ -113,7 +119,7 @@ class X86_64_CodeGenerator
 		}
 
 		string tmpName = getUniqueName();
-		genVariableDecl(new VarDecl(Variable.Type.int_, tmpName));
+		genVariableDecl(new VarDecl(PrimitiveType.int_, tmpName));
 		return varAddresses[tmpName];
 	}
 
@@ -180,7 +186,7 @@ class X86_64_CodeGenerator
 	void genVariableDecl(VarDecl decl)
 	in (!(decl.varName in varAddresses))
 	{
-		stackOffset -= 8; // TODO sizeof var
+		stackOffset -= primitiveTypeSizes[decl.type]; 
 		varAddresses[decl.varName] = new VarAddress(stackOffset);
 	}
 
@@ -188,14 +194,16 @@ class X86_64_CodeGenerator
 	in (var.name in varAddresses)
 	{
 		debug(CommentedGen) genCode ~= format!"; assign %s\n"(var.name);
-		genCode ~= format!"movq %s, %d(%%rbp)\n"(s.asmLocation(), varAddresses[var.name].stackOffset);
+		genCode ~= movInstr[cast(int) primitiveTypeSizes[var.type]]; // gen mov according to the size of var
+		genCode ~= format!" %s, %d(%%rbp)\n"(s.asmLocation(), varAddresses[var.name].stackOffset);
 	}
 
 	Register genVarStore(Variable var)
 	{
 		Register r = allocRegister();
 		debug(CommentedGen) genCode ~= format!"; store %s\n"(var.name);
-		genCode ~= format!"movq %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.name);
+		genCode ~= movInstr[cast(int) primitiveTypeSizes[var.type]]; // gen mov according to the size of var
+		genCode ~= format!" %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.name);
 		return r;
 	}
 	
@@ -385,6 +393,11 @@ class X86_64_CodeGenerator
 		freeAllRegiters();
 	}
 
+	void genWiden()
+	{
+
+	}
+
 	void genPreample()
 	{
 		genCode ~= ".text\n" ~ 
@@ -508,6 +521,10 @@ class X86_64_CodeGenerator
 			genFnPreamble(fn);
 			generateASM(fn.funcBody);
 			genFnPostamble();
+		}
+		else if (type == typeid(Widen))
+		{
+			genWiden();
 		}
 		else
 		{

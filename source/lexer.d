@@ -37,12 +37,15 @@ struct Token
 		closedParenthesis,
 
 		K_print,
+		
 		K_int,
+		K_void,
+		K_char,
+
 		K_if,
 		K_else,
 		K_while,
 		K_for,
-		K_void,
 
 		invalid,
 	}
@@ -52,8 +55,8 @@ struct Token
 	
 	union
 	{
-		int value_int;
-		string identifier_name;
+		int intValue;
+		string identifierName;
 	}
 }
 
@@ -61,11 +64,12 @@ class Lexer
 {
 	enum keywords = [ 	"print" : Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
 						"int" 	: Token.Type.K_int,
+						"void" 	: Token.Type.K_void,
+						"char" 	: Token.Type.K_char,
 						"if" 	: Token.Type.K_if,
 						"else" 	: Token.Type.K_else,
 						"while" : Token.Type.K_while,
 						"for" 	: Token.Type.K_for,
-						"void" 	: Token.Type.K_void,
 						];
 	
 	this(string code)
@@ -217,11 +221,12 @@ class Lexer
 			break;
 			case '!':
 				if (peek(1) == '=') {
-					t.type = notEqual;
 					next();
+					t.type = notEqual;
 				}
 				else
 					reportError("char '!' is not a valid token");
+				next();
 			break;
 			case ';':
 				t.type = semicolon;
@@ -233,7 +238,7 @@ class Lexer
 			default:
 			if (isNumber(c))
 			{
-				t.value_int = scanInt();
+				t.intValue = scanInt();
 				t.type = Token.Type.intLiteral;
 			}
 			else if (isAlpha(c) || c == '_')
@@ -247,7 +252,7 @@ class Lexer
 				else // identifier 
 				{
 					t.type = Token.Type.identifier;
-					t.identifier_name = name;
+					t.identifierName = name;
 				}
 			}
 			else if (c.isWhite())

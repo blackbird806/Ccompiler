@@ -40,9 +40,78 @@ interface ASTvisitor
 	mixin(genVisitMethods());
 }
 
+enum PrimitiveType
+{
+	int_,
+	char_,
+	void_,
+}
+
+enum primitiveTypeSizes = [
+	PrimitiveType.int_ 	: int.sizeof,
+	PrimitiveType.char_ : char.sizeof,
+	PrimitiveType.void_ : void.sizeof,
+];
+
+bool typeCompatible(ASTnode left, ASTnode right, bool onlyRight)
+{
+	with (PrimitiveType) {
+
+	if (left.type == void_ || right.type == void_) 
+		return false;
+	
+	if (left.type == right.type) 
+		return true;
+
+	if (left.type == char_ && right.type == int_)
+	{
+		left = new Glue(left, new Widen(int_));
+		return true;
+	}
+
+	if (left.type == int_ && right.type == char_)
+	{
+		if (onlyRight) return 0;
+
+		right = new Glue(right, new Widen(int_));
+		return true;
+	}
+	}
+	assert(false, "unreachable");
+}
+
+// @Review
+bool typeCompatible(PrimitiveType leftType, ASTnode right, bool onlyRight)
+{
+	with (PrimitiveType) {
+
+	if (leftType == void_ || right.type == void_) 
+		return false;
+	
+	if (leftType == right.type) 
+		return true;
+
+	if (leftType == char_ && right.type == int_)
+	{
+		return false;
+	}
+
+	if (leftType == int_ && right.type == char_)
+	{
+		if (onlyRight) return 0;
+
+		right = new Glue(right, new Widen(int_));
+		return true;
+	}
+	}
+	assert(false, "unreachable");
+}
+
 abstract class ASTnode
 {
 	void accept(ASTvisitor);
+
+	PrimitiveType type;
 }
 
 class BinExpr : ASTnode
@@ -101,9 +170,32 @@ class IntLiteral : ASTnode
 	this(int v)
 	{
 		value = v;
+		type = PrimitiveType.int_;
 	}
 
 	int value;
+}
+
+class Widen : ASTnode
+{
+	mixin implementVisitor;
+
+	this(PrimitiveType newType)
+	{
+		type = newType;
+	}
+}
+
+class CharLiteral : ASTnode
+{
+	mixin implementVisitor;
+
+	this(char v)
+	{
+		value = v;
+	}
+
+	char value;
 }
 
 class PrintKeyword : ASTnode
@@ -122,13 +214,12 @@ class VarDecl : ASTnode
 {
 	mixin implementVisitor;
 
-	this(Variable.Type t, string name)
+	this(PrimitiveType t, string name)
 	{
 		type = t;
 		varName = name;
 	}
 
-	Variable.Type type;
 	string varName;
 }
 
@@ -144,24 +235,6 @@ class AssignStatement : ASTnode
 
 	Variable var;
 	ASTnode right;
-}
-
-class Variable : ASTnode
-{
-	enum Type {
-		int_
-	}
-
-	mixin implementVisitor;
-
-	this(string varName, Type t)
-	{
-		name = varName;
-		type = t;
-	}
-
-	string name;
-	Type type;
 }
 
 class IfStatement : ASTnode
@@ -191,7 +264,25 @@ class WhileStatement : ASTnode
 	ASTnode condition, whileBody;
 }
 
-class FunctionDeclaration : ASTnode
+// @Review : I'm not sure about this way to represent symbol
+interface Symbol
+{
+}
+
+class Variable : ASTnode, Symbol
+{
+	mixin implementVisitor;
+
+	this(PrimitiveType t, string varName)
+	{
+		name = varName;
+		type = t;
+	}
+
+	string name;
+}
+
+class FunctionDeclaration : ASTnode, Symbol
 {
 	mixin implementVisitor;
 
@@ -215,6 +306,18 @@ class Glue : ASTnode
 	}
 
 	ASTnode tree, left;
+}
+
+PrimitiveType tokenTypeToPrimitiveType(Token.Type type)
+{
+	switch (type)
+	{
+		case Token.Type.K_char: return PrimitiveType.char_;
+		case Token.Type.K_int: 	return PrimitiveType.int_;
+		case Token.Type.K_void: return PrimitiveType.void_;
+		default:
+		assert(false, "can't convert TokenType to Primitive type");
+	}
 }
 
 // https://en.cppreference.com/w/c/language/operator_precedence
@@ -269,13 +372,18 @@ class Parser
 		switch(tk.type)
 		{
 			case Token.Type.intLiteral:
-				return new IntLiteral(tk.value_int);
+				return new IntLiteral(tk.intValue);
 			case Token.Type.identifier:
-				if (!(tk.identifier_name in symTable))
+				if (!(tk.identifierName in symTable))
 				{
-					reportError("line %d : undefined identifier : %s", tk.location.lineNum, tk.identifier_name);
+					reportError("line %d : undefined identifier : %s", tk.location.lineNum, tk.identifierName);
 				}
-				return new Variable(tk.identifier_name, Variable.Type.int_);
+				Variable var = cast(Variable) symTable[tk.identifierName];
+				if (var is null)
+				{
+					reportError("line %d : symbol \"%s\" is not a variable", tk.location.lineNum, tk.identifierName);
+				}
+				return var;
 			default:
 				reportError("line %d : bad primary token %s", tk.location.lineNum, tk.type);
 				assert(false);
@@ -294,6 +402,12 @@ class Parser
 			Token tk = nextToken();
 			BinExpr.Type opType = BinExpr.toBinExprType(tk.type);
 			ASTnode right = binExpr(operatorPrecedence[opType]);
+
+			if (!typeCompatible(left, right, false))
+			{
+				reportError("line %s : types %s and %s are not compatibles", tk.location.lineNum, right.type, left.type);
+			}
+
 			left = new BinExpr(left, right, opType);
 
 			if (tokens[index].type == Token.Type.semicolon || tokens[index].type == Token.Type.closedParenthesis)
@@ -349,7 +463,7 @@ class Parser
 	}
 	
 	/// add a symbol into symtable
-	void addSymbol(string symName, lazy ASTnode symbol)
+	void addSymbol(string symName, lazy Symbol symbol)
 	{
 		bool symbolExist = true;
 		// https://dlang.org/spec/hash-map.html#inserting_if_not_present
@@ -366,14 +480,14 @@ class Parser
 		}
 	}
 
-	ASTnode varDecl(Token n)
-	in(n.type == Token.Type.K_int) // only int are supported currently
+	ASTnode varDecl(Token varTypeTk)
 	{
 		Token varidentTk = expect(Token.Type.identifier);
+		PrimitiveType varType = tokenTypeToPrimitiveType(varTypeTk.type);
 
-		addSymbol(varidentTk.identifier_name, new Variable(varidentTk.identifier_name, Variable.Type.int_));
+		addSymbol(varidentTk.identifierName, new Variable(varType, varidentTk.identifierName));
 
-		return new VarDecl(Variable.Type.int_, varidentTk.identifier_name);
+		return new VarDecl(varType, varidentTk.identifierName);
 	}
 
 	ASTnode assignementStatement(Token identTk)
@@ -381,10 +495,20 @@ class Parser
 	{
 		expect(Token.Type.equal);
 		ASTnode right = binExpr(int.max);
-		ASTnode* var = identTk.identifier_name in symTable;
+		Symbol* sym =  identTk.identifierName in symTable;
+
+		if (sym is null)
+			reportError("unrecognized var : %s", identTk.identifierName);
+
+		Variable var = cast(Variable) *sym;
 		if (var is null)
-			reportError("unrecognized var : %s", identTk.identifier_name);
-		return new AssignStatement(cast(Variable) *var, right);
+			reportError("symbol %s is not a variable", identTk.identifierName);
+
+		if (!typeCompatible(var, right, true))
+			reportError("line %s : trying to init var %s with an incompatible type : %s", 
+			identTk.location.lineNum, var.type, right.type);
+		
+		return new AssignStatement(var, right);
 	}
 
 	ASTnode ifStatement()
@@ -442,9 +566,9 @@ class Parser
 		// @TODO : parameters 
 		expect(Token.Type.closedParenthesis);
 
-		FunctionDeclaration fn = new FunctionDeclaration(ident.identifier_name);
+		FunctionDeclaration fn = new FunctionDeclaration(ident.identifierName);
 		
-		addSymbol(ident.identifier_name, fn);
+		addSymbol(ident.identifierName, fn);
 
 		fn.funcBody = compoundStatement();
 
@@ -458,8 +582,12 @@ class Parser
 		switch(n.type)
 		{
 			case K_print:
-				return new PrintKeyword(binExpr(int.max));
+			ASTnode tree = binExpr(int.max);
+				if (!typeCompatible(PrimitiveType.int_, tree, false))
+					reportError("line %s : print expect int type got %s instead", n.location.lineNum, tree.type);
+				return new PrintKeyword(tree);
 			case K_int:
+			case K_char:
 				return varDecl(n);
 			case identifier:
 				return assignementStatement(n);
@@ -643,7 +771,7 @@ class Parser
 	}
 
 	FunctionDeclaration[] functions;
-	ASTnode[string] symTable;
+	Symbol[string] symTable;
 	uint index = 0;
 	Token[] tokens;
 }
