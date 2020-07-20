@@ -7,6 +7,12 @@ import std.typecons : Nullable;
 struct SourceLocation
 {
 	uint lineNum;
+
+	string toString() const @safe
+	{
+		import std.format : format;
+		return format!"line %s"(lineNum);
+	}
 }
 
 struct Token
@@ -39,6 +45,7 @@ struct Token
 		K_print,
 		
 		K_int,
+		K_long,
 		K_void,
 		K_char,
 
@@ -46,6 +53,7 @@ struct Token
 		K_else,
 		K_while,
 		K_for,
+		K_return,
 
 		invalid,
 	}
@@ -62,14 +70,16 @@ struct Token
 
 class Lexer
 {
-	enum keywords = [ 	"print" : Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
-						"int" 	: Token.Type.K_int,
-						"void" 	: Token.Type.K_void,
-						"char" 	: Token.Type.K_char,
-						"if" 	: Token.Type.K_if,
-						"else" 	: Token.Type.K_else,
-						"while" : Token.Type.K_while,
-						"for" 	: Token.Type.K_for,
+	enum keywords = [ 	"print" 	: Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
+						"long" 		: Token.Type.K_long,
+						"int" 		: Token.Type.K_int,
+						"void" 		: Token.Type.K_void,
+						"char" 		: Token.Type.K_char,
+						"if" 		: Token.Type.K_if,
+						"else" 		: Token.Type.K_else,
+						"while" 	: Token.Type.K_while,
+						"for" 		: Token.Type.K_for,
+						"return" 	: Token.Type.K_return,
 						];
 	
 	this(string code)
@@ -132,7 +142,7 @@ class Lexer
 	{
 		char c = current();
 		immutable uint start = index;
-		while((c.isAlphaNum || c == '_') && index < source.length)
+		while((c.isAlphaNum() || c == '_') && index < source.length)
 		{
 			c = next();	
 		}

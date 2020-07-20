@@ -298,7 +298,7 @@ class X86_64_CodeGenerator
 		else if (typeid(stmt.condition) == typeid(IntLiteral))
 		{
 			arithemtic:
-			Register result = generateASM(stmt.condition);
+			Register result = genBinExpr(cast(BinExpr) stmt.condition);
 			genCode ~= format!"jz L%s\n"(targetLabel);
 		}
 		else
@@ -344,7 +344,7 @@ class X86_64_CodeGenerator
 		else if (typeid(stmt.condition) == typeid(IntLiteral))
 		{
 			arithemtic:
-			Register result = generateASM(stmt.condition);
+			Register result = genBinExpr(cast(BinExpr) stmt.condition);
 			genCode ~= format!"jnz L%s\n"(targetLabel);
 		}
 		else
@@ -388,7 +388,7 @@ class X86_64_CodeGenerator
 		freeAllRegiters();
 
 		genLabel(cmpLabel);
-		Register result = generateASM(n.condition);
+		Register result = genBinExpr(cast(BinExpr) n.condition);
 		genCondJump(n, startLabel);
 		freeAllRegiters();
 	}
@@ -424,34 +424,35 @@ class X86_64_CodeGenerator
 		"ret\n";
 	}
 
-	Register generateASM(ASTnode node)
+	Register genBinExpr(ASTnode node)
 	{
-		Register left, right;
 		TypeInfo type = typeid(node);
 
 		if (type == typeid(BinExpr))
-		{
-			BinExpr binNode = cast(BinExpr) node;
+		{	
+			auto binNode = cast(BinExpr) node;
+
+			Register left, right;
 			if (binNode.left)
-				left = generateASM(binNode.left);
+				left = genBinExpr(binNode.left);
 			if (binNode.right)
-				right = generateASM(binNode.right);
+				right = genBinExpr(binNode.right);
 
 			switch(binNode.opType)
 			{
 				case BinExpr.Type.add:
 					return genAdd(left, right);
-					
+						
 				case BinExpr.Type.substract:
 					return genSub(left, right);
-					
+						
 				case BinExpr.Type.divide:
 					return genDiv(left, right);
-					
+						
 				case BinExpr.Type.multiply:
 					return genMul(left, right);
-				
-				// @TODO : find a more elegant way to do this
+					
+				// TODO : find a more elegant way to do this
 
 				case BinExpr.Type.equal:
 					return genCmp!(BinExpr.Type.equal)(left, right);
@@ -480,10 +481,31 @@ class X86_64_CodeGenerator
 			IntLiteral intNode = cast(IntLiteral) node;
 			return genLoad(intNode.value);
 		}
+		else if (type == typeid(Variable))
+		{
+			return genVarStore(cast(Variable) node);
+		}
+		assert(false, "unrecognized expr");
+	}
+
+	// generate compound statement
+	void generateASM(ASTnode node)
+	{
+		TypeInfo type = typeid(node);
+
+		if (type == typeid(BinExpr))
+		{
+			genBinExpr(cast(BinExpr) node);
+		}
+		else if (type == typeid(IntLiteral))
+		{
+			IntLiteral intNode = cast(IntLiteral) node;
+			genLoad(intNode.value);
+		}
 		else if (type == typeid(PrintKeyword))
 		{
 			PrintKeyword printNode = cast(PrintKeyword) node;
-			genPrintRegister(generateASM(printNode.child));
+			genPrintRegister(genBinExpr(printNode.child));
 			freeAllRegiters();
 		}
 		else if (type == typeid(VarDecl))
@@ -493,11 +515,11 @@ class X86_64_CodeGenerator
 		else if (type == typeid(AssignStatement))
 		{
 			AssignStatement assignNode = cast(AssignStatement) node;
-			genVarAssign(assignNode.var, generateASM(assignNode.right));
+			genVarAssign(assignNode.var, genBinExpr(assignNode.right));
 		}
 		else if (type == typeid(Variable))
 		{
-			return genVarStore(cast(Variable) node);
+			genVarStore(cast(Variable) node);
 		}
 		else if (type == typeid(Glue))
 		{
@@ -530,9 +552,6 @@ class X86_64_CodeGenerator
 		{
 			reportError("bad ASTNode type : %s", node);
 		}
-
-		// @TODO : I should not waste a register if not needed 
-		return allocRegister();
 	}
 
 	void generateCode()

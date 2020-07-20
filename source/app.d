@@ -8,15 +8,16 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(q{
-		void main() {
-			int i; char j;
 
-			j= 255; print j;
-			print j + 1;
-			i= 10; print i;
-
-			for (i= 1; i <= 5; i= i + 1) { print i; }
+			void main()
+			{
+				long a;
+				a = 5;
+				long b;
+				b = a - 1;
+				print a;
 			}
+
 		});
 
 	debug writeln("======== start lexing ========");

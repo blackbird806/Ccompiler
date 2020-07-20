@@ -49,8 +49,8 @@ enum PrimitiveType
 }
 
 enum primitiveTypeSizes = [
-	PrimitiveType.int_ 	: int.sizeof,
-	PrimitiveType.int_ 	: long.sizeof,
+	PrimitiveType.int_ 	: long.sizeof, // TODO: handle int size
+	PrimitiveType.long_ : long.sizeof,
 	PrimitiveType.char_ : char.sizeof,
 	PrimitiveType.void_ : void.sizeof,
 ];
@@ -59,52 +59,51 @@ bool typeCompatible(ASTnode left, ASTnode right, bool onlyRight)
 {
 	with (PrimitiveType) {
 
-	if (left.type == void_ || right.type == void_) 
-		return false;
-	
 	if (left.type == right.type) 
 		return true;
 
-	if (left.type == char_ && right.type == int_)
+	immutable leftSize = primitiveTypeSizes[left.type];
+	immutable rightSize = primitiveTypeSizes[right.type];
+
+	if (leftSize == 0 || rightSize == 0) 
+		return false;
+
+	if (leftSize < rightSize)
 	{
-		left = new Glue(left, new Widen(int_));
+		left = new Glue(left, new Widen(right.type)); // widen to right type @Review
 		return true;
 	}
 
-	if (left.type == int_ && right.type == char_)
+	if (rightSize > leftSize)
 	{
-		if (onlyRight) return 0;
-
-		right = new Glue(right, new Widen(int_));
+		right = new Glue(right, new Widen(left.type));
 		return true;
 	}
+	return true; // same size
 	}
 	assert(false, "unreachable");
 }
 
-// @Review
+// Review
 bool typeCompatible(PrimitiveType leftType, ASTnode right, bool onlyRight)
 {
 	with (PrimitiveType) {
 
-	if (leftType == void_ || right.type == void_) 
-		return false;
-	
 	if (leftType == right.type) 
 		return true;
 
-	if (leftType == char_ && right.type == int_)
-	{
+	immutable leftSize = primitiveTypeSizes[leftType];
+	immutable rightSize = primitiveTypeSizes[right.type];
+
+	if (leftSize == 0 || rightSize == 0) 
 		return false;
-	}
 
-	if (leftType == int_ && right.type == char_)
+	if (rightSize > leftSize)
 	{
-		if (onlyRight) return 0;
-
-		right = new Glue(right, new Widen(int_));
+		right = new Glue(right, new Widen(leftType));
 		return true;
 	}
+	return true; // same size
 	}
 	assert(false, "unreachable");
 }
@@ -266,7 +265,7 @@ class WhileStatement : ASTnode
 	ASTnode condition, whileBody;
 }
 
-// @Review : I'm not sure about this way to represent symbol
+// Review : I'm not sure about this way to represent symbol
 interface Symbol
 {
 }
@@ -295,6 +294,19 @@ class FunctionDeclaration : ASTnode, Symbol
 
 	string name;
 	ASTnode funcBody;
+	PrimitiveType returnType;
+}
+
+class FunctionCall : ASTnode, Symbol
+{
+	mixin implementVisitor;
+
+	this(string name)
+	{
+		this.name = name;
+	}
+
+	string name;
 }
 
 class Glue : ASTnode
@@ -310,12 +322,25 @@ class Glue : ASTnode
 	ASTnode tree, left;
 }
 
+class ReturnStatement : ASTnode
+{
+	mixin implementVisitor;
+
+	this(ASTnode t)
+	{
+		tree = t;
+	}
+
+	ASTnode tree;
+}
+
 PrimitiveType tokenTypeToPrimitiveType(Token.Type type)
 {
 	switch (type)
 	{
 		case Token.Type.K_char: return PrimitiveType.char_;
 		case Token.Type.K_int: 	return PrimitiveType.int_;
+		case Token.Type.K_long: return PrimitiveType.long_;
 		case Token.Type.K_void: return PrimitiveType.void_;
 		default:
 		assert(false, "can't convert TokenType to Primitive type");
@@ -376,6 +401,9 @@ class Parser
 			case Token.Type.intLiteral:
 				return new IntLiteral(tk.intValue);
 			case Token.Type.identifier:
+				if (peekToken().type == Token.Type.openParenthesis)
+					return functionCall(tk);
+
 				if (!(tk.identifierName in symTable))
 				{
 					reportError("line %d : undefined identifier : %s", tk.location.lineNum, tk.identifierName);
@@ -477,7 +505,7 @@ class Parser
 
 		if (symbolExist)
 		{
-			// @TODO better error support
+			// TODO better error support
 			reportError("line %d : symbol \"%s\" already defined", tokens[index].location.lineNum, symName);
 		}
 	}
@@ -559,13 +587,31 @@ class Parser
 		tree = new WhileStatement(condStmt, tree);
 		return new Glue(tree, initStmt);
 	}
+
+	ASTnode returnStatement(FunctionDeclaration fnDecl)
+	{
+		if (fnDecl.returnType != PrimitiveType.void_)
+		{
+			reportError("%s : function %s : return void", tokens[index].location, fnDecl.name);
+		}
+		expect(Token.type.K_return);
+
+		ASTnode expr = binExpr(int.max);
+		if (!typeCompatible(fnDecl.returnType, expr, true))
+		{
+			reportError("%s : function %s : must return %s, current expresion is of type %s", 
+			tokens[index].location, fnDecl.returnType, expr.type);
+		}
+
+		return new ReturnStatement(expr);
+	}
 	
 	ASTnode functionDeclaration()
 	{
-		expect(Token.Type.K_void);
+		PrimitiveType retType = tokenTypeToPrimitiveType(nextToken().type);
 		Token ident = expect(Token.Type.identifier);
 		expect(Token.Type.openParenthesis);
-		// @TODO : parameters 
+		// TODO : parameters 
 		expect(Token.Type.closedParenthesis);
 
 		FunctionDeclaration fn = new FunctionDeclaration(ident.identifierName);
@@ -573,8 +619,32 @@ class Parser
 		addSymbol(ident.identifierName, fn);
 
 		fn.funcBody = compoundStatement();
+		fn.returnType = retType;
+
+		if (retType != PrimitiveType.void_)
+		{
+			fn.funcBody = new Glue(returnStatement(fn), fn.funcBody);
+		}
 
 		return fn;
+	}
+
+	ASTnode functionCall(Token identTk)
+	{
+		index++; // we already know the next token is an open parentesis
+		expect(Token.Type.closedParenthesis); // TODO : handle function arguments
+
+		if (!(identTk.identifierName in symTable))
+		{
+			reportError("line %d : undefined identifier : %s", identTk.location.lineNum, identTk.identifierName);
+		}
+		FunctionDeclaration fn = cast(FunctionDeclaration) symTable[identTk.identifierName];
+		if (fn is null)
+		{
+			reportError("line %d : symbol \"%s\" is not a function", identTk.location.lineNum, identTk.identifierName);
+		}
+
+		return new FunctionCall(fn.name);
 	}
 
 	ASTnode singleStatement()
@@ -589,9 +659,12 @@ class Parser
 					reportError("line %s : print expect int type got %s instead", n.location.lineNum, tree.type);
 				return new PrintKeyword(tree);
 			case K_int:
+			case K_long:
 			case K_char:
 				return varDecl(n);
 			case identifier:
+				if (peekToken().type == Token.Type.openParenthesis)
+					return functionCall(n);
 				return assignementStatement(n);
 			case K_if:
 				return ifStatement();

@@ -24,9 +24,13 @@ unittest
 
 		version (linux)
 		{
-			execute(["gcc", "-g", "a.s"]);
+			auto exec = execute(["gcc", "-g", "a.s"]);
+			assert(exec.status == 0, `compilation failed`);
+
 			writeln("\nstarting progam ...\n");
-			execute(["./a.out"]).output.writeln;
+			exec = execute(["./a.out"]);
+			assert(exec.status == 0, `execution failed`);
+			exec.output.writeln();
 			writeln("progam ended");
 		}
 	}
