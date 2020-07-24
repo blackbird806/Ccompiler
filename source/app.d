@@ -11,9 +11,9 @@ void main(string[] args)
 
 			void main()
 			{
-				long a;
+				int a;
 				a = 5;
-				long b;
+				int b;
 				b = a - 1;
 				print a;
 			}

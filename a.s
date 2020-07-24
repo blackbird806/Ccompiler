@@ -24,8 +24,8 @@ call printf@plt
 movq $45, %r8
 movq -8(%rbp), %r9
 addq %r8, %r9
-movq %r9, -17(%rbp)
-movq -17(%rbp), %r8
+movb %r9, -17(%rbp)
+movb -17(%rbp), %r8
 lea .LC0(%rip), %rdi
 movq %r8, %rsi
 xor %eax, %eax

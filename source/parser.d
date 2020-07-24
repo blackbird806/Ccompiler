@@ -17,6 +17,7 @@ string genVisitMethods()
 	string codeGen;
 	static foreach(memStr; __traits(allMembers, parser))
 	{
+		// Review check if there is no better way to ensure that our Type is a child of ASTNode
 		static if (isType!(mixin(memStr)) &&
 		!__traits(isSame, mixin(memStr), ASTnode) && 
 		isImplicitlyConvertible!(mixin(memStr), ASTnode))

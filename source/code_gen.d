@@ -14,27 +14,39 @@ private void reportError(Args...)(string fmt, Args args)
 	debug(FatalError) assert(0);
 }
 
-public interface Storage
+class Register
 {
-	string asmLocation() const;
-}
-
-class Register : Storage
-{
-	this(string n)
+	this(string n64, string n32, string n16, string n8)
 	{
-		name = n;
+		name64 = n64;
+		name32 = n32;
+		name16 = n16;
+		name8 = n8;
 	}
 
-	string asmLocation() const
+	string regNameFromSize(int size)
 	{
-		return name;
+		switch (size)
+		{
+			case 1:
+				return name8;
+			case 2:
+				return name16;
+			case 4:
+				return name32;
+			case 8:
+				return name64;
+			default:
+				assert(0, "size must be either 1, 2, 4 or 8 bytes !");
+		}
 	}
 
-	string name;
+	alias name = name64;
+	
+	immutable string name64, name32, name16, name8;
 }
 
-class VarAddress : Storage
+class VarAddress
 {
 	this(int offset)
 	{
@@ -49,22 +61,28 @@ class VarAddress : Storage
 	int stackOffset;
 }
 
-string genRegisterArray()
-{
-	import std.conv : to;
-	
-	string code = "[";
-	foreach(i; 8 .. 16)
-		code ~= `new Register("%r` ~ to!string(i) ~ `"), `;
-	code ~= "]";
-	return code;
-}
-
-static registers = mixin(genRegisterArray());
+static registers = mixin(
+	{
+		import std.conv : to;
+		
+		string code = "[";
+		foreach(i; 8 .. 16)
+		{
+			string regName = "%r" ~ to!string(i);
+			code ~= `new Register("` 
+				/*64 bits*/ ~ regName ~ `", "` 
+				/*32 bits*/ ~ regName ~ `d", "`
+				/*16 bits*/ ~ regName ~ `w", "`
+				/* 8 bits*/ ~ regName ~ `b"), `;
+		}
+		code ~= "]";
+		return code;
+	}()
+);
 
 enum movInstr = [
-	1 : "movq",
-	4 : "movq",
+	1 : "movb",
+	4 : "movl",
 	8 : "movq",
 ];
 
@@ -77,7 +95,6 @@ class X86_64_CodeGenerator
 
 	void freeAllRegiters()
 	{
-		// debug writefln("free all registers");
 		freeRegisters = registers.dup;
 	}
 
@@ -103,38 +120,6 @@ class X86_64_CodeGenerator
 		import std.conv : to;
 
 		return "__tmpVar" ~ to!string(nameUid++);
-	}
-
-	Storage allocStorage()
-	{
-		if (freeRegisters.length > 0)
-			return allocRegister();
-
-		debug writeln("allocStorage");
-		if (freedStorage.length > 0)
-		{
-			Storage s = freedStorage[0];
-			freedStorage = freedStorage[1 .. $];
-			return s;
-		}
-
-		string tmpName = getUniqueName();
-		genVariableDecl(new VarDecl(PrimitiveType.int_, tmpName));
-		return varAddresses[tmpName];
-	}
-
-	void freeStorage(Storage s)
-	{
-		debug writeln("freeStorage");
-
-		if (typeid(s) == typeid(Register))
-		{
-			freeRegister(cast(Register) s);
-		}
-		else
-		{
-			freedStorage ~= s;
-		}	
 	}
 
 	Register genLoad(int val)
@@ -190,12 +175,12 @@ class X86_64_CodeGenerator
 		varAddresses[decl.varName] = new VarAddress(stackOffset);
 	}
 
-	void genVarAssign(Variable var, Storage s)
+	void genVarAssign(Variable var, Register r)
 	in (var.name in varAddresses)
 	{
 		debug(CommentedGen) genCode ~= format!"; assign %s\n"(var.name);
 		genCode ~= movInstr[cast(int) primitiveTypeSizes[var.type]]; // gen mov according to the size of var
-		genCode ~= format!" %s, %d(%%rbp)\n"(s.asmLocation(), varAddresses[var.name].stackOffset);
+		genCode ~= format!" %s, %d(%%rbp)\n"(r.name64, varAddresses[var.name].stackOffset);
 	}
 
 	Register genVarStore(Variable var)
@@ -566,8 +551,6 @@ class X86_64_CodeGenerator
 	string genCode;
 	Register[] freeRegisters;
 	
-	Storage[] freedStorage;
-
 	uint nameUid;
 	uint nextLabelId;
 	
