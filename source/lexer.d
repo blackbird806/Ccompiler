@@ -1,6 +1,7 @@
 module lexer;
 import std.stdio : writefln, writeln, write;
 import std.uni;
+import std.array;
 import std.conv : to;
 import std.typecons : Nullable;
 
@@ -70,7 +71,7 @@ struct Token
 
 class Lexer
 {
-	enum keywords = [ 	"print" 	: Token.Type.K_print, // @suppress(dscanner.performance.enum_array_literal)
+	enum keywords = [ 	"print" 	: Token.Type.K_print,
 						"long" 		: Token.Type.K_long,
 						"int" 		: Token.Type.K_int,
 						"void" 		: Token.Type.K_void,
@@ -81,7 +82,7 @@ class Lexer
 						"for" 		: Token.Type.K_for,
 						"return" 	: Token.Type.K_return,
 						];
-	
+
 	this(string code)
 	{
 		source = code;
@@ -113,7 +114,6 @@ class Lexer
 	char skipBlank()
 	{
 		for(char c = current(); c.isWhite && index < source.length-1; c = next()) { // @suppress(dscanner.suspicious.length_subtraction)
-			// debug writefln("skip index %d", index);
 			if (c == '\n')
 				lineCount++;
 		}
@@ -126,6 +126,17 @@ class Lexer
 		for(char c = current(); c != '\n' && index < source.length-1; c = next()) // @suppress(dscanner.suspicious.length_subtraction)
 			{	}
 		lineCount++;
+	}
+
+	string lineStr()
+	{
+		string line;
+		for(char c = current(); c != '\n' && index < source.length-1; c = next()) // @suppress(dscanner.suspicious.length_subtraction)
+		{
+			line ~= c;
+		}
+		lineCount++;
+		return line;
 	}
 
 	int scanInt()
@@ -148,6 +159,55 @@ class Lexer
 		}
 
 		return source[start .. index];
+	}
+
+	void preprocessorPass()
+	{
+		while (index + 1 < source.length)
+		{
+			char c = skipBlank();
+			if (c == '/')
+			{
+				if (peek(1) == '/') { // single line comment
+					next();
+					skipLine();
+				}
+			}
+			else if (c == '#')
+			{
+				next();
+				string directive = scanIdent();
+				if (directive == "define")
+				{
+					skipBlank();
+					const string macroName = scanIdent();
+					skipBlank();
+					const string macroExpand = lineStr();
+					defineSets[macroName] = macroExpand;
+				}
+				else
+				{
+					reportError("undefined preprocessor directive");
+				}
+			}
+			else if (isAlpha(c) || c == '_')
+			{
+				uint identStart = index;
+				string ident = scanIdent();
+				if (ident in defineSets)
+				{
+					source.replaceInPlace(identStart, index, defineSets[ident]);
+				}
+			}
+			else
+			{
+				if (index + 1 == source.length)
+					break;
+				next();
+			}
+		}
+
+		index = 0;
 	}
 
 	/*
@@ -239,6 +299,9 @@ class Lexer
 					reportError("char '!' is not a valid token");
 				next();
 			break;
+			case '#':
+				skipLine();
+				goto l_rescan;
 			case ';':
 				t.type = semicolon;
 				if (index == source.length-1) // @suppress(dscanner.suspicious.length_subtraction)
@@ -280,12 +343,10 @@ class Lexer
 	in(index == 0)	// ensure lex is called only once
 	{
 		Nullable!Token tk = scan();
-		// debug writeln(tk);
 		while(!tk.isNull)
 		{
 			tokens ~= tk;
 			tk = scan();
-			// debug writeln(tk);
 		}
 		return tokens;
 	}
@@ -300,4 +361,7 @@ class Lexer
 	uint index = 0;
 	uint lineCount = 0;
 	Token[] tokens;
+
+	// preprocessor
+	string[string] defineSets;
 }

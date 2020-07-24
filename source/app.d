@@ -7,20 +7,24 @@ import code_gen : X86_64_CodeGenerator;
 
 void main(string[] args)
 {
-	auto lexer = new Lexer(q{
+	auto lexer = new Lexer(`
+			#define DECLARE_A int a;
+			#define func void
 
-			void main()
+			func main()
 			{
-				int a;
+				DECLARE_A
 				a = 5;
 				int b;
 				b = a - 1;
 				print a;
 			}
-
-		});
+		`);
 
 	debug writeln("======== start lexing ========");
+	lexer.preprocessorPass();
+	lexer.source.writeln();
+	
 	lexer.lex();
 	debug writeln("======== end lexing ========");
 	
@@ -45,4 +49,5 @@ void main(string[] args)
 		execute(["./a.out"]).output.writeln;
 		writeln("progam ended");
 	}
+	
 }

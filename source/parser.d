@@ -127,7 +127,7 @@ class BinExpr : ASTnode
 
 	static Type toBinExprType(Token.Type tktype)
 	{
-		enum opTypes = [ // @suppress(dscanner.performance.enum_array_literal)
+		enum opTypes = [
 			Token.Type.plus 			: Type.add,
 			Token.Type.minus 			: Type.substract,
 			Token.Type.star 			: Type.multiply,
