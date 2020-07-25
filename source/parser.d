@@ -1,6 +1,8 @@
 module parser;
 
 import std.stdio;
+import std.format;
+
 import lexer;
 
 private void reportError(Args...)(string fmt, Args args)
@@ -337,6 +339,7 @@ class ReturnStatement : ASTnode
 
 PrimitiveType tokenTypeToPrimitiveType(Token.Type type)
 {
+	
 	switch (type)
 	{
 		case Token.Type.K_char: return PrimitiveType.char_;
@@ -344,7 +347,7 @@ PrimitiveType tokenTypeToPrimitiveType(Token.Type type)
 		case Token.Type.K_long: return PrimitiveType.long_;
 		case Token.Type.K_void: return PrimitiveType.void_;
 		default:
-		assert(false, "can't convert TokenType to Primitive type");
+		assert(false, format!"can't convert %s to Primitive type"(type));
 	}
 }
 

@@ -111,9 +111,17 @@ class Lexer
 		return source[++index];
 	}
 
+	// skip all blank characters on the current line
+	char skipBlankOnLine()
+	{
+		for(char c = current(); c.isWhite() && c != '\n' && index + 1  < source.length; c = next()) {
+		}
+		return current();
+	}
+
 	char skipBlank()
 	{
-		for(char c = current(); c.isWhite && index < source.length-1; c = next()) { // @suppress(dscanner.suspicious.length_subtraction)
+		for(char c = current(); c.isWhite() && index  + 1 < source.length; c = next()) { 
 			if (c == '\n')
 				lineCount++;
 		}
@@ -172,6 +180,10 @@ class Lexer
 					next();
 					skipLine();
 				}
+				else
+				{
+					next();
+				}
 			}
 			else if (c == '#')
 			{
@@ -179,10 +191,14 @@ class Lexer
 				string directive = scanIdent();
 				if (directive == "define")
 				{
-					skipBlank();
+					skipBlankOnLine();
 					const string macroName = scanIdent();
-					skipBlank();
-					const string macroExpand = lineStr();
+					skipBlankOnLine();
+					
+					string macroExpand = "";
+					if (current() != '\n')
+						macroExpand = lineStr();
+
 					defineSets[macroName] = macroExpand;
 				}
 				else

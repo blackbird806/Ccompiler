@@ -14,6 +14,7 @@ unittest
 	void compileAndRun(string code)
 	{
 		auto lexer = new Lexer(code);
+		lexer.preprocessorPass();
 		lexer.lex();
 		auto p = new Parser(lexer.tokens);
 		p.parse();

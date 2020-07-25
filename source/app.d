@@ -8,17 +8,12 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(`
-			#define DECLARE_A int a;
-			#define func void
-
-			func main()
-			{
-				DECLARE_A
-				a = 5;
-				int b;
-				b = a - 1;
-				print a;
-			}
+		void main()
+		{
+			print 5 + 3;
+			print 8 * 2 + 2;
+			print 78/87 +24 -2 *3; 
+		}
 		`);
 
 	debug writeln("======== start lexing ========");
