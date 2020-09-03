@@ -2,6 +2,7 @@ module lexer;
 import std.stdio : writefln, writeln, write;
 import std.uni;
 import std.array;
+import std.algorithm;
 import std.conv : to;
 import std.typecons : Nullable;
 
@@ -15,6 +16,8 @@ struct SourceLocation
 		return format!"line %s"(lineNum);
 	}
 }
+
+
 
 struct Token
 {
@@ -66,6 +69,27 @@ struct Token
 	{
 		int intValue;
 		string identifierName;
+	}
+}
+
+struct MacroExpand
+{
+	string expandedStr;
+	string[] parameterNames;
+
+	string getExpandedMacroWithArgs(string[] parameters) const
+	{
+		if (parameters.length != parameterNames.length)
+			writeln("[preprocessor error] parameters count do not match with macro declaration !");
+
+		string result;
+
+		foreach (i, string param; parameterNames)
+		{
+			result = expandedStr.replace(param, parameters[i]);
+		}
+
+		return result;
 	}
 }
 
@@ -147,6 +171,18 @@ class Lexer
 		return line;
 	}
 
+	string peekLineStr()
+	{
+		const tmp = index;
+		string line;
+		for(char c = current(); c != '\n' && index < source.length-1; c = next()) // @suppress(dscanner.suspicious.length_subtraction)
+		{
+			line ~= c;
+		}
+		index = tmp;
+		return line;
+	}
+
 	int scanInt()
 	{
 		uint tmp = index;
@@ -189,17 +225,29 @@ class Lexer
 			{
 				next();
 				string directive = scanIdent();
+				string[] parameterNames;
+
 				if (directive == "define")
 				{
 					skipBlankOnLine();
 					const string macroName = scanIdent();
+					skipBlankOnLine();
+
+					if (current() == '(')
+					{
+						next();
+						parameterNames = peekLineStr().split(")").front().split(",");
+					}
+					while (next() != ')') { }
+					next();
+
 					skipBlankOnLine();
 					
 					string macroExpand = "";
 					if (current() != '\n')
 						macroExpand = lineStr();
 
-					defineSets[macroName] = macroExpand;
+					defineSets[macroName] = MacroExpand(macroExpand, parameterNames);
 				}
 				else
 				{
@@ -212,7 +260,29 @@ class Lexer
 				string ident = scanIdent();
 				if (ident in defineSets)
 				{
-					source.replaceInPlace(identStart, index, defineSets[ident]);
+					if (defineSets[ident].parameterNames == null) // if no parameters no need for parentheses
+					{
+						source.replaceInPlace(identStart, index, defineSets[ident].expandedStr);
+					}
+					else
+					{
+						import std.conv : to;
+
+						uint numParenthesis = 0;
+						bool parenthesisMatch(CharT)(CharT p)
+						{
+							if (p == '(')
+								numParenthesis++;
+							else if (p == ')')
+								numParenthesis--;
+								
+							return numParenthesis == 0;
+						}
+
+						string[] params = peekLineStr().filter!(a => !a.isWhite() && !parenthesisMatch(a)).array.to!string.split(")").front().split(",");
+						while (next() != ')') { }
+						source.replaceInPlace(identStart, index+1, defineSets[ident].getExpandedMacroWithArgs(params));
+					}
 				}
 			}
 			else
@@ -379,5 +449,5 @@ class Lexer
 	Token[] tokens;
 
 	// preprocessor
-	string[string] defineSets;
+	MacroExpand[string] defineSets;
 }

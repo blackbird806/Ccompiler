@@ -8,9 +8,11 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(`
+	#define YEET(X) print X;
+	#define SQUARE(X) X * X
 		void main()
 		{
-			print 5 + 3;
+			YEET(SQUARE(5))
 			print 8 * 2 + 2;
 			print 78/87 +24 -2 *3; 
 		}
