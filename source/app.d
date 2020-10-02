@@ -8,20 +8,18 @@ import code_gen : X86_64_CodeGenerator;
 void main(string[] args)
 {
 	auto lexer = new Lexer(`
-	#define YEET(X) print X;
-	#define SQUARE(X) X * X
-		void main()
-		{
-			YEET(SQUARE(5))
-			print 8 * 2 + 2;
-			print 78/87 +24 -2 *3; 
-		}
+void main()
+{
+	int a;
+	a = 255;
+	char f;
+	f = 45 + a;
+	print f;
+}
 		`);
 
 	debug writeln("======== start lexing ========");
-	lexer.preprocessorPass();
-	lexer.source.writeln();
-	
+
 	lexer.lex();
 	debug writeln("======== end lexing ========");
 	
@@ -41,10 +39,10 @@ void main(string[] args)
 
 	version (linux)
 	{
+		execute(["rm", "a.out"]);
 		execute(["gcc", "-g", "a.s"]);
 		writeln("\nstarting progam ...\n");
 		execute(["./a.out"]).output.writeln;
 		writeln("progam ended");
 	}
-	
 }

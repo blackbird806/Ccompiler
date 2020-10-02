@@ -17,8 +17,6 @@ struct SourceLocation
 	}
 }
 
-
-
 struct Token
 {
 	enum Type {
@@ -205,6 +203,7 @@ class Lexer
 		return source[start .. index];
 	}
 
+	// TODO check how to handle C preprocessor elegantly
 	void preprocessorPass()
 	{
 		while (index + 1 < source.length)

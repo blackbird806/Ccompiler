@@ -52,7 +52,7 @@ enum PrimitiveType
 }
 
 enum primitiveTypeSizes = [
-	PrimitiveType.int_ 	: long.sizeof, // TODO: handle int size
+	PrimitiveType.int_ 	: int.sizeof, // TODO: handle int size
 	PrimitiveType.long_ : long.sizeof,
 	PrimitiveType.char_ : char.sizeof,
 	PrimitiveType.void_ : void.sizeof,
@@ -73,13 +73,13 @@ bool typeCompatible(ASTnode left, ASTnode right, bool onlyRight)
 
 	if (leftSize < rightSize)
 	{
-		left = new Glue(left, new Widen(right.type)); // widen to right type @Review
+		left = new Glue(left, new Cast(left.type, right.type)); // widen to right type @Review
 		return true;
 	}
 
 	if (rightSize > leftSize)
 	{
-		right = new Glue(right, new Widen(left.type));
+		right = new Glue(right, new Cast(left.type, right.type));
 		return true;
 	}
 	return true; // same size
@@ -103,7 +103,7 @@ bool typeCompatible(PrimitiveType leftType, ASTnode right, bool onlyRight)
 
 	if (rightSize > leftSize)
 	{
-		right = new Glue(right, new Widen(leftType));
+		right = new Glue(right, new Cast(leftType, right.type));
 		return true;
 	}
 	return true; // same size
@@ -180,14 +180,17 @@ class IntLiteral : ASTnode
 	int value;
 }
 
-class Widen : ASTnode
+class Cast : ASTnode
 {
 	mixin implementVisitor;
 
-	this(PrimitiveType newType)
+	this(PrimitiveType fromType, PrimitiveType toType)
 	{
-		type = newType;
+		this.fromType = fromType;
+		this.toType = toType;
 	}
+	
+	PrimitiveType fromType, toType;
 }
 
 class CharLiteral : ASTnode
@@ -679,6 +682,9 @@ class Parser
 			case openBrace:
 				index--; // walk back to pass the expect(openBrace)
 				return compoundStatement();
+			case closedBrace:
+				index--;
+				return null;
 			default:
 				reportError("Syntax error line %d : token %s", n.location.lineNum, n.type);
 			break;

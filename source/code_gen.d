@@ -24,7 +24,7 @@ class Register
 		name8 = n8;
 	}
 
-	string regNameFromSize(int size)
+	string regNameFromSize(ulong size)
 	{
 		switch (size)
 		{
@@ -41,8 +41,12 @@ class Register
 		}
 	}
 
+	string regNameFromType(PrimitiveType type)
+	{
+		return regNameFromSize(primitiveTypeSizes[type]);
+	}
+
 	alias name = name64;
-	
 	immutable string name64, name32, name16, name8;
 }
 
@@ -125,7 +129,7 @@ class X86_64_CodeGenerator
 	Register genLoad(int val)
 	{
 		auto register = allocRegister();
-		genCode ~= format!"movq $%d, %s\n"(val, register.name);
+		genCode ~= format!"movq $%d, %s\n"(val, register.name64);
 		return register;
 	}
 
@@ -179,16 +183,16 @@ class X86_64_CodeGenerator
 	in (var.name in varAddresses)
 	{
 		debug(CommentedGen) genCode ~= format!"; assign %s\n"(var.name);
-		genCode ~= movInstr[cast(int) primitiveTypeSizes[var.type]]; // gen mov according to the size of var
-		genCode ~= format!" %s, %d(%%rbp)\n"(r.name64, varAddresses[var.name].stackOffset);
+		genCode ~= getMovNameFromType(var.type); // gen mov according to the size of var
+		genCode ~= format!" %s, %d(%%rbp)\n"(r.regNameFromType(var.type), varAddresses[var.name].stackOffset);
 	}
 
 	Register genVarStore(Variable var)
 	{
 		Register r = allocRegister();
 		debug(CommentedGen) genCode ~= format!"; store %s\n"(var.name);
-		genCode ~= movInstr[cast(int) primitiveTypeSizes[var.type]]; // gen mov according to the size of var
-		genCode ~= format!" %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.name);
+		genCode ~= getMovNameFromType(var.type); // gen mov according to the size of var
+		genCode ~= format!" %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.regNameFromType(var.type));
 		return r;
 	}
 	
@@ -200,37 +204,13 @@ class X86_64_CodeGenerator
 	Register genCmp(BinExpr.Type opType)(Register r1, Register r2)
 	{
 		genCode ~= format!"cmpq %s, %s\n"(r2.name, r1.name);
-/* 		TODO:
-		const string regName8 = r2.name ~ "b"; // @Todo : func to get lower bits of registers
-		with (BinExpr.Type) {
-		switch(opType)
-		{
-			case less:
-				genCode ~= format!"setl %s\n"(regName8);
-			break;
-			case greater:
-				genCode ~= format!"setg %s\n"(regName8);
-			break;
-			case lessEqual:
-				genCode ~= format!"setle %s\n"(regName8);
-			break;
-			case greaterEqual:
-				genCode ~= format!"setge %s\n"(regName8);
-			break;
-			case equal:
-				genCode ~= format!"sete %s\n"(regName8);
-			break;
-			case notEqual:
-				genCode ~= format!"setne %s\n"(regName8);
-			break;
-			default:
-			assert(false, "type is not a cmp operator");
-		}
-		} // with (BinExpr.Type)
-		genCode ~= format!"andq $255, %s\n"(r2.name);
-		*/
 		freeRegister(r1);
 		return r2;
+	}
+
+	string getMovNameFromType(PrimitiveType type)
+	{
+		return movInstr[cast(int) primitiveTypeSizes[type]];
 	}
 
 	uint createLabel()
@@ -378,15 +358,19 @@ class X86_64_CodeGenerator
 		freeAllRegiters();
 	}
 
-	void genWiden()
+	void genCast(Cast w)
 	{
-
+		if (w.fromType < w.toType)
+		{
+			// Widen
+		}
 	}
 
 	void genPreample()
 	{
-		genCode ~= ".text\n" ~ 
-		".LC0:\n" ~ 
+		genCode ~= 
+		".text\n" ~  
+		".LC0:\n" ~
 		`.string "out %d\n"` ~ "\n";
 	}
 
@@ -529,9 +513,9 @@ class X86_64_CodeGenerator
 			generateASM(fn.funcBody);
 			genFnPostamble();
 		}
-		else if (type == typeid(Widen))
+		else if (type == typeid(Cast))
 		{
-			genWiden();
+			genCast(cast(Cast) type);
 		}
 		else
 		{
