@@ -1,5 +1,3 @@
-module tests;
-
 unittest
 {
 	import std.stdio : writeln;
@@ -14,7 +12,6 @@ unittest
 	void compileAndRun(string code)
 	{
 		auto lexer = new Lexer(code);
-		lexer.preprocessorPass();
 		lexer.lex();
 		auto p = new Parser(lexer.tokens);
 		p.parse();
@@ -26,11 +23,11 @@ unittest
 		version (linux)
 		{
 			auto exec = execute(["gcc", "-g", "a.s"]);
-			assert(exec.status == 0, `compilation failed`);
+			assert(exec.status == 0, "compilation failed");
 
 			writeln("\nstarting progam ...\n");
 			exec = execute(["./a.out"]);
-			assert(exec.status == 0, `execution failed`);
+			assert(exec.status == 0, "execution failed");
 			exec.output.writeln();
 			writeln("progam ended");
 		}

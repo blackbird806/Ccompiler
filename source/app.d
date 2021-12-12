@@ -13,7 +13,8 @@ void main()
 	int a;
 	a = 255;
 	char f;
-	f = 45 + a;
+	f = 255;
+	f = f + a;
 	print f;
 }
 		`);

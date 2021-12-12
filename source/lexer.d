@@ -136,14 +136,19 @@ class Lexer
 	// skip all blank characters on the current line
 	char skipBlankOnLine()
 	{
-		for(char c = current(); c.isWhite() && c != '\n' && index + 1  < source.length; c = next()) {
-		}
+		for(char c = current(); 
+			c.isWhite() && c != '\n' && index + 1  < source.length; 
+			c = next()) 
+		{ }
 		return current();
 	}
 
 	char skipBlank()
 	{
-		for(char c = current(); c.isWhite() && index  + 1 < source.length; c = next()) { 
+		for(char c = current(); 
+			c.isWhite() && index  + 1 < source.length;
+		 	c = next()) 
+		{ 
 			if (c == '\n')
 				lineCount++;
 		}
@@ -201,98 +206,6 @@ class Lexer
 		}
 
 		return source[start .. index];
-	}
-
-	// TODO check how to handle C preprocessor elegantly
-	void preprocessorPass()
-	{
-		while (index + 1 < source.length)
-		{
-			char c = skipBlank();
-			if (c == '/')
-			{
-				if (peek(1) == '/') { // single line comment
-					next();
-					skipLine();
-				}
-				else
-				{
-					next();
-				}
-			}
-			else if (c == '#')
-			{
-				next();
-				string directive = scanIdent();
-				string[] parameterNames;
-
-				if (directive == "define")
-				{
-					skipBlankOnLine();
-					const string macroName = scanIdent();
-					skipBlankOnLine();
-
-					if (current() == '(')
-					{
-						next();
-						parameterNames = peekLineStr().split(")").front().split(",");
-					}
-					while (next() != ')') { }
-					next();
-
-					skipBlankOnLine();
-					
-					string macroExpand = "";
-					if (current() != '\n')
-						macroExpand = lineStr();
-
-					defineSets[macroName] = MacroExpand(macroExpand, parameterNames);
-				}
-				else
-				{
-					reportError("undefined preprocessor directive");
-				}
-			}
-			else if (isAlpha(c) || c == '_')
-			{
-				uint identStart = index;
-				string ident = scanIdent();
-				if (ident in defineSets)
-				{
-					if (defineSets[ident].parameterNames == null) // if no parameters no need for parentheses
-					{
-						source.replaceInPlace(identStart, index, defineSets[ident].expandedStr);
-					}
-					else
-					{
-						import std.conv : to;
-
-						uint numParenthesis = 0;
-						bool parenthesisMatch(CharT)(CharT p)
-						{
-							if (p == '(')
-								numParenthesis++;
-							else if (p == ')')
-								numParenthesis--;
-								
-							return numParenthesis == 0;
-						}
-
-						string[] params = peekLineStr().filter!(a => !a.isWhite() && !parenthesisMatch(a)).array.to!string.split(")").front().split(",");
-						while (next() != ')') { }
-						source.replaceInPlace(identStart, index+1, defineSets[ident].getExpandedMacroWithArgs(params));
-					}
-				}
-			}
-			else
-			{
-				if (index + 1 == source.length)
-					break;
-				next();
-			}
-		}
-
-		index = 0;
 	}
 
 	/*
@@ -430,7 +343,7 @@ class Lexer
 		Nullable!Token tk = scan();
 		while(!tk.isNull)
 		{
-			tokens ~= tk;
+			tokens ~= tk.get;
 			tk = scan();
 		}
 		return tokens;

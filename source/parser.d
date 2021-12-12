@@ -129,7 +129,7 @@ class BinExpr : ASTnode
 
 	static Type toBinExprType(Token.Type tktype)
 	{
-		enum opTypes = [
+		immutable opTypes = [
 			Token.Type.plus 			: Type.add,
 			Token.Type.minus 			: Type.substract,
 			Token.Type.star 			: Type.multiply,
@@ -143,7 +143,7 @@ class BinExpr : ASTnode
 			Token.Type.notEqual 		: Type.notEqual,
 		];
 
-		Type* t = tktype in opTypes;
+		immutable(Type)* t = tktype in opTypes;
 
 		if (!t)
 		{
@@ -272,9 +272,7 @@ class WhileStatement : ASTnode
 }
 
 // Review : I'm not sure about this way to represent symbol
-interface Symbol
-{
-}
+interface Symbol { }
 
 class Variable : ASTnode, Symbol
 {
@@ -738,7 +736,7 @@ class Parser
 	void printAST()
 	{
 		foreach(fn; functions)
-		printAST(fn);
+			printAST(fn);
 	}
 
 	void printAST(ASTnode node)

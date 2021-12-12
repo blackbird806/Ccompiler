@@ -126,6 +126,45 @@ class X86_64_CodeGenerator
 		return "__tmpVar" ~ to!string(nameUid++);
 	}
 
+	uint getFunctionStackSize(FunctionDeclaration fnDecl)
+	{
+		import std.typecons : BlackHole;
+
+		class ASTStackSizeComputer : BlackHole!ASTvisitor
+		{
+			uint scopeSize = 0;
+
+			override void visit(VarDecl decl)
+			{
+				scopeSize += primitiveTypeSizes[decl.type];
+			}
+
+			override void visit(IfStatement stmt)
+			{
+				stmt.ifBody.accept(this);
+				if (stmt.elseBody)
+				{
+					stmt.elseBody.accept(this);
+				}
+			}
+
+			override void visit(WhileStatement stmt)
+			{
+				stmt.whileBody.accept(this);
+			}
+
+			override void visit(Glue glue)
+			{
+				glue.left.accept(this);
+				glue.tree.accept(this);
+			}
+		}
+
+		auto computer = new ASTStackSizeComputer();
+		fnDecl.funcBody.accept(computer);
+		return computer.scopeSize;
+	}
+
 	Register genLoad(int val)
 	{
 		auto register = allocRegister();
@@ -382,14 +421,14 @@ class X86_64_CodeGenerator
 		format!"%s:\n"(fn.name) ~
 		"pushq %rbp\n" ~
 		"movq %rsp, %rbp\n" ~
-		"subq $512, %rsp\n";
+		format!"subq $%d, %%rsp\n"(getFunctionStackSize(fn));
 	}
 
-	void genFnPostamble()
+	void genFnPostamble(FunctionDeclaration fn)
 	{
 		genCode ~= "movl $0, %eax\n" ~
 		"popq %rbp\n" ~
-		"addq $512, %rsp\n" ~
+		format!"addq $%d, %%rsp\n"(getFunctionStackSize(fn)) ~
 		"ret\n";
 	}
 
@@ -511,7 +550,7 @@ class X86_64_CodeGenerator
 			FunctionDeclaration fn = cast(FunctionDeclaration) node;
 			genFnPreamble(fn);
 			generateASM(fn.funcBody);
-			genFnPostamble();
+			genFnPostamble(fn);
 		}
 		else if (type == typeid(Cast))
 		{

@@ -3,6 +3,5 @@
         "dscanner.style.undocumented_declaration",
         "dscanner.suspicious.unmodified",
         "dscanner.suspicious.unused_variable",
-        "dscanner.performance.enum_array_literal"
     ]
 }
