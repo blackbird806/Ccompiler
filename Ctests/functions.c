@@ -1,4 +1,4 @@
-void pow()
+void main()
 {
 	int n;
 	int num;
@@ -16,7 +16,3 @@ void pow()
 	print num;
 }
 
-void main()
-{
-	print 42;
-}

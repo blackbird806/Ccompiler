@@ -10,12 +10,19 @@ void main(string[] args)
 	auto lexer = new Lexer(`
 void main()
 {
-	int a;
-	a = 255;
-	char f;
-	f = 255;
-	f = f + a;
-	print f;
+	int n = 5;
+	int num;
+	int b;
+
+	num = 5;
+	b = num;
+
+	int i;
+	for (i=0; i < n-1; i = i + 1)
+	{
+		num = num * b;
+	}
+	print num;
 }
 		`);
 

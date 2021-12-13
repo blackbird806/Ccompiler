@@ -402,6 +402,7 @@ class X86_64_CodeGenerator
 		if (w.fromType < w.toType)
 		{
 			// Widen
+			genCode ~= "; widen cast\n";
 		}
 	}
 

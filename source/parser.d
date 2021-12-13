@@ -52,7 +52,7 @@ enum PrimitiveType
 }
 
 enum primitiveTypeSizes = [
-	PrimitiveType.int_ 	: int.sizeof, // TODO: handle int size
+	PrimitiveType.int_ 	: int.sizeof,
 	PrimitiveType.long_ : long.sizeof,
 	PrimitiveType.char_ : char.sizeof,
 	PrimitiveType.void_ : void.sizeof,
@@ -521,8 +521,14 @@ class Parser
 		PrimitiveType varType = tokenTypeToPrimitiveType(varTypeTk.type);
 
 		addSymbol(varidentTk.identifierName, new Variable(varType, varidentTk.identifierName));
-
-		return new VarDecl(varType, varidentTk.identifierName);
+		auto decl = new VarDecl(varType, varidentTk.identifierName);
+		if (peekToken().type == Token.Type.equal)
+		{
+			auto glue = new Glue(assignementStatement(varidentTk), decl);
+			expect(Token.Type.semicolon);
+			return glue;
+		}
+		return decl;
 	}
 
 	ASTnode assignementStatement(Token identTk)
@@ -704,7 +710,9 @@ class Parser
 			if (tree)
 			{
 				const treeid = typeid(tree);
-				if (treeid == typeid(PrintKeyword) || treeid == typeid(VarDecl) || treeid == typeid(AssignStatement))
+				if (treeid == typeid(PrintKeyword) || 
+					treeid == typeid(VarDecl) || 
+					treeid == typeid(AssignStatement))
 				{
 					expect(Token.Type.semicolon);
 				}
