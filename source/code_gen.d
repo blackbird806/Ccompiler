@@ -205,6 +205,7 @@ class X86_64_CodeGenerator
 
 	void genPrintRegister(Register r)
 	{
+		debug(CommentedGen) genCode ~= "; print\n";
 		genCode ~= "lea .LC0(%rip), %rdi\n";
 		genCode ~= format!"movq %s, %%rsi\n"(r.name);
 		genCode ~= "xor %eax, %eax\n";
@@ -226,10 +227,12 @@ class X86_64_CodeGenerator
 		genCode ~= format!" %s, %d(%%rbp)\n"(r.regNameFromType(var.type), varAddresses[var.name].stackOffset);
 	}
 
+	// TODO rename
+	// load var from stack into register
 	Register genVarStore(Variable var)
 	{
 		Register r = allocRegister();
-		debug(CommentedGen) genCode ~= format!"; store %s\n"(var.name);
+		debug(CommentedGen) genCode ~= format!"; load %s\n"(var.name);
 		genCode ~= getMovNameFromType(var.type); // gen mov according to the size of var
 		genCode ~= format!" %d(%%rbp), %s\n"(varAddresses[var.name].stackOffset, r.regNameFromType(var.type));
 		return r;

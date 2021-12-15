@@ -10,19 +10,9 @@ void main(string[] args)
 	auto lexer = new Lexer(`
 void main()
 {
-	int n = 5;
-	int num;
-	int b;
-
-	num = 5;
-	b = num;
-
-	int i;
-	for (i=0; i < n-1; i = i + 1)
-	{
-		num = num * b;
-	}
-	print num;
+	char f = 255;
+	int b = f + f;
+	print b; 
 }
 		`);
 
@@ -43,7 +33,7 @@ void main()
 	cg.generateCode();
 	debug writeln("======== end code gen ==========");
 
-	write("a.s", cg.genCode);
+	std.file.write("a.s", cg.genCode);
 
 	version (linux)
 	{
